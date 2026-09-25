@@ -34,24 +34,37 @@ NOTIFY_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0004"
 MODE_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0005"
 RESULT_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0006"
 
-ctk.set_appearance_mode("Dark")
+# Exact App Palette matching Flutter app main.dart
+COLOR_BG        = "#F5F4EE"
+COLOR_SURFACE   = "#FFFFFF"
+COLOR_BORDER    = "#E5E3DA"
+COLOR_INK       = "#1F1E1D"
+COLOR_INK_MUTED = "#6B6963"
+COLOR_CLAY      = "#CC785C"
+COLOR_CLAY_SOFT = "#F3E3DC"
+COLOR_GOOD      = "#4F7A5C"
+COLOR_BAD       = "#B3563A"
+
+ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
 
 class PisuBotPCApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Pisu Bot PC Controller - by ROBOZA")
-        self.geometry("920x680")
-        self.minsize(850, 600)
+        self.title("Pisu Bot")
+        self.geometry("860x780")
+        self.minsize(780, 680)
+        self.configure(fg_color=COLOR_BG)
 
         # Connection State
         self.connection_mode = "Disconnected" # "BLE", "SERIAL", "SIMULATOR", "Disconnected"
         self.ble_client = None
         self.serial_port = None
         self.is_connected = False
+        self.status_text = "Disconnected"
 
         self.watch_mode = False
-        self.auto_sync_clock = True
+        self.temperature_c = 24.5
 
         # Async Loop thread for BLE
         self.loop = asyncio.new_event_loop()
@@ -60,9 +73,10 @@ class PisuBotPCApp(ctk.CTk):
 
         # Build UI
         self._create_header()
-        self._create_main_layout()
+        self._create_scrollable_body()
 
-        # Start periodic sync timer
+        # Clock Ticker
+        self.after(1000, self._update_clock_ticker)
         self.after(2000, self._periodic_sync)
 
     def _run_async_loop(self):
@@ -70,124 +84,187 @@ class PisuBotPCApp(ctk.CTk):
         self.loop.run_forever()
 
     def _create_header(self):
-        header_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="#1E1E2E")
-        header_frame.pack(side="top", fill="x", padx=0, pady=0)
+        header_frame = ctk.CTkFrame(self, corner_radius=0, fg_color=COLOR_BG, height=60)
+        header_frame.pack(side="top", fill="x", padx=20, pady=(10, 0))
 
         title_label = ctk.CTkLabel(
             header_frame,
-            text="🤖 Pisu Bot Controller",
-            font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
-            text_color="#89B4FA"
+            text="Pisu Bot",
+            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+            text_color=COLOR_INK
         )
-        title_label.pack(side="left", padx=20, pady=12)
+        title_label.pack(side="left", pady=10)
 
         subtitle_label = ctk.CTkLabel(
             header_frame,
-            text="by ROBOZA",
+            text=" by ROBOZA",
             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
-            text_color="#FAB387"
+            text_color=COLOR_CLAY
         )
-        subtitle_label.pack(side="left", padx=0, pady=12)
+        subtitle_label.pack(side="left", pady=10)
 
-        self.status_badge = ctk.CTkLabel(
-            header_frame,
-            text="🔴 Disconnected",
+    def _create_scrollable_body(self):
+        self.scroll = ctk.CTkScrollableFrame(self, fg_color=COLOR_BG, corner_radius=0)
+        self.scroll.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+        # 1. WatchFace Hero Card
+        self._build_watchface_hero()
+
+        # 2. Connection Section Card
+        self._build_connection_card()
+
+        # 3. Bot Display Mode Section Card
+        self._build_mode_card()
+
+        # 4. Games Section Card (Tic-Tac-Toe)
+        self._build_games_card()
+
+        # 5. Notifications Section Card
+        self._build_notifications_card()
+
+        # 6. Reactions Section Card
+        self._build_reactions_card()
+
+    # ------------------ 1. WATCHFACE HERO ------------------
+    def _build_watchface_hero(self):
+        hero = ctk.CTkFrame(self.scroll, fg_color=COLOR_INK, corner_radius=22)
+        hero.pack(fill="x", padx=5, pady=(10, 14))
+
+        self.hero_clock_lbl = ctk.CTkLabel(
+            hero,
+            text="14:32:05",
+            font=ctk.CTkFont(family="Segoe UI", size=48, weight="bold"),
+            text_color="#FFFFFF"
+        )
+        self.hero_clock_lbl.pack(pady=(24, 2))
+
+        self.hero_date_lbl = ctk.CTkLabel(
+            hero,
+            text="Thursday, September 25",
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+            text_color="#B3B2AD"
+        )
+        self.hero_date_lbl.pack(pady=(0, 14))
+
+        # Weather Pill
+        pill = ctk.CTkFrame(hero, fg_color="#31302E", corner_radius=20)
+        pill.pack(pady=(0, 24))
+
+        self.hero_weather_lbl = ctk.CTkLabel(
+            pill,
+            text="☀️ 24.5°C",
             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
-            fg_color="#313244",
-            text_color="#F38BA8",
-            corner_radius=8,
-            padx=12,
-            pady=4
+            text_color="#FFFFFF"
         )
-        self.status_badge.pack(side="right", padx=20, pady=12)
+        self.hero_weather_lbl.pack(padx=16, pady=6)
 
-    def _create_main_layout(self):
-        self.tabview = ctk.CTkTabview(self, corner_radius=12)
-        self.tabview.pack(fill="both", expand=True, padx=15, pady=15)
+    def _update_clock_ticker(self):
+        now = datetime.datetime.now()
+        time_str = now.strftime("%H:%M:%S")
+        date_str = now.strftime("%A, %B %d")
+        self.hero_clock_lbl.configure(text=time_str)
+        self.hero_date_lbl.configure(text=date_str)
+        self.after(1000, self._update_clock_ticker)
 
-        self.tab_conn = self.tabview.add("📡 Connection")
-        self.tab_clock = self.tabview.add("⏱️ Watch & Clock")
-        self.tab_notif = self.tabview.add("🔔 Notifications")
-        self.tab_game = self.tabview.add("🎮 Tic-Tac-Toe")
-        self.tab_express = self.tabview.add("🎭 Reactions")
+    # Helper to make Flutter-style Section Cards
+    def _create_section_card(self, title):
+        card = ctk.CTkFrame(self.scroll, fg_color=COLOR_SURFACE, border_color=COLOR_BORDER, border_width=1, corner_radius=18)
+        card.pack(fill="x", padx=5, pady=7)
 
-        self._build_connection_tab()
-        self._build_clock_tab()
-        self._build_notif_tab()
-        self._build_game_tab()
-        self._build_express_tab()
+        title_lbl = ctk.CTkLabel(
+            card,
+            text=title.upper(),
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color=COLOR_INK_MUTED
+        )
+        title_lbl.pack(anchor="w", padx=20, pady=(16, 8))
+        return card
 
-    def _update_status(self, text, state_type="disconnected"):
-        colors = {
-            "connected": ("#A6E3A1", "#181825"), # Green text
-            "connecting": ("#F9E2AF", "#181825"), # Yellow text
-            "disconnected": ("#F38BA8", "#313244") # Red text
-        }
-        text_color, bg_color = colors.get(state_type, colors["disconnected"])
-        self.status_badge.configure(text=text, text_color=text_color, fg_color=bg_color)
+    # ------------------ 2. CONNECTION CARD ------------------
+    def _build_connection_card(self):
+        card = self._create_section_card("CONNECTION")
 
-    # ------------------ 1. CONNECTION TAB ------------------
-    def _build_connection_tab(self):
-        frame = self.tab_conn
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(0, 16))
 
-        lbl = ctk.CTkLabel(frame, text="Select Connection Method", font=ctk.CTkFont(size=16, weight="bold"))
-        lbl.pack(anchor="w", padx=15, pady=(15, 10))
+        self.dot_lbl = ctk.CTkLabel(inner, text="●", font=ctk.CTkFont(size=14), text_color=COLOR_BORDER)
+        self.dot_lbl.pack(side="left", padx=(0, 8))
 
-        # Method 1: Bluetooth LE
-        ble_card = ctk.CTkFrame(frame, corner_radius=10)
-        ble_card.pack(fill="x", padx=15, pady=8)
+        self.conn_status_lbl = ctk.CTkLabel(
+            inner,
+            text="Disconnected",
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+            text_color=COLOR_INK
+        )
+        self.conn_status_lbl.pack(side="left")
 
-        ctk.CTkLabel(ble_card, text="Bluetooth LE (Wireless)", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=15, pady=(10, 2))
-        ctk.CTkLabel(ble_card, text="Scans for 'Pisu Bot' over Bluetooth Low Energy", text_color="#A6ADC8").pack(anchor="w", padx=15, pady=(0, 10))
+        # Connection Buttons
+        btn_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        btn_frame.pack(side="right")
 
-        ble_btn_frame = ctk.CTkFrame(ble_card, fg_color="transparent")
-        ble_btn_frame.pack(fill="x", padx=15, pady=(0, 10))
-
-        self.ble_scan_btn = ctk.CTkButton(ble_btn_frame, text="Scan & Connect BLE", command=self.connect_ble, fg_color="#89B4FA", text_color="#11111B")
-        self.ble_scan_btn.pack(side="left", padx=5)
-
-        # Method 2: Serial COM Port
-        serial_card = ctk.CTkFrame(frame, corner_radius=10)
-        serial_card.pack(fill="x", padx=15, pady=8)
-
-        ctk.CTkLabel(serial_card, text="USB Serial COM Port (Wired)", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=15, pady=(10, 2))
-        ctk.CTkLabel(serial_card, text="Connect directly via USB Cable (CH340/CP2102)", text_color="#A6ADC8").pack(anchor="w", padx=15, pady=(0, 10))
-
-        serial_btn_frame = ctk.CTkFrame(serial_card, fg_color="transparent")
-        serial_btn_frame.pack(fill="x", padx=15, pady=(0, 10))
-
-        self.port_combo = ctk.CTkComboBox(serial_btn_frame, values=["COM1", "COM2", "COM3", "COM4", "COM5"])
-        self.port_combo.pack(side="left", padx=5)
+        self.port_combo = ctk.CTkComboBox(btn_frame, values=["COM1", "COM2", "COM3"], width=90, fg_color=COLOR_BG, text_color=COLOR_INK, button_color=COLOR_BORDER)
+        self.port_combo.pack(side="left", padx=4)
         self.refresh_ports()
 
-        ctk.CTkButton(serial_btn_frame, text="Refresh Ports", command=self.refresh_ports, width=100, fg_color="#45475A").pack(side="left", padx=5)
-        self.serial_conn_btn = ctk.CTkButton(serial_btn_frame, text="Connect Serial", command=self.connect_serial, fg_color="#A6E3A1", text_color="#11111B")
-        self.serial_conn_btn.pack(side="left", padx=5)
+        self.conn_ble_btn = ctk.CTkButton(
+            btn_frame,
+            text="Connect BLE",
+            command=self.connect_ble,
+            fg_color=COLOR_CLAY,
+            hover_color="#B3654B",
+            text_color="#FFFFFF",
+            corner_radius=10,
+            height=34
+        )
+        self.conn_ble_btn.pack(side="left", padx=4)
 
-        # Method 3: Simulator / Demo
-        sim_card = ctk.CTkFrame(frame, corner_radius=10)
-        sim_card.pack(fill="x", padx=15, pady=8)
+        self.conn_serial_btn = ctk.CTkButton(
+            btn_frame,
+            text="USB Serial",
+            command=self.connect_serial,
+            fg_color=COLOR_GOOD,
+            hover_color="#3F634A",
+            text_color="#FFFFFF",
+            corner_radius=10,
+            height=34
+        )
+        self.conn_serial_btn.pack(side="left", padx=4)
 
-        ctk.CTkLabel(sim_card, text="Simulator Mode (Test UI without Hardware)", font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=15, pady=(10, 2))
-        ctk.CTkButton(sim_card, text="Enable Simulator Mode", command=self.enable_simulator, fg_color="#FAB387", text_color="#11111B").pack(anchor="w", padx=15, pady=(0, 12))
-
-        # Disconnect Button
-        self.disconn_btn = ctk.CTkButton(frame, text="Disconnect", command=self.disconnect_all, fg_color="#F38BA8", text_color="#11111B")
-        self.disconn_btn.pack(anchor="e", padx=15, pady=15)
+        self.disconn_btn = ctk.CTkButton(
+            btn_frame,
+            text="Disconnect",
+            command=self.disconnect_all,
+            fg_color=COLOR_BG,
+            hover_color=COLOR_BORDER,
+            text_color=COLOR_INK,
+            border_color=COLOR_BORDER,
+            border_width=1,
+            corner_radius=10,
+            height=34
+        )
+        self.disconn_btn.pack(side="left", padx=4)
 
     def refresh_ports(self):
         if HAS_SERIAL:
             ports = [p.device for p in serial.tools.list_ports.comports()]
             if not ports:
-                ports = ["No COM Ports"]
+                ports = ["COM1"]
             self.port_combo.configure(values=ports)
             self.port_combo.set(ports[0])
 
+    def _update_conn_ui(self, connected, message):
+        self.is_connected = connected
+        self.conn_status_lbl.configure(text=message)
+        if connected:
+            self.dot_lbl.configure(text_color=COLOR_GOOD)
+        else:
+            self.dot_lbl.configure(text_color=COLOR_BORDER)
+
     def connect_ble(self):
         if not HAS_BLEAK:
-            self._update_status("Bleak library missing", "disconnected")
+            self._update_conn_ui(False, "Bleak library missing")
             return
-        self._update_status("Scanning BLE...", "connecting")
+        self._update_conn_ui(False, "Scanning BLE for Pisu Bot...")
         asyncio.run_coroutine_threadsafe(self._async_connect_ble(), self.loop)
 
     async def _async_connect_ble(self):
@@ -197,36 +274,26 @@ class PisuBotPCApp(ctk.CTk):
                 timeout=8.0
             )
             if not device:
-                self.after(0, lambda: self._update_status("Pisu Bot Not Found", "disconnected"))
+                self.after(0, lambda: self._update_conn_ui(False, "Pisu Bot Not Found"))
                 return
             client = BleakClient(device)
             await client.connect()
             self.ble_client = client
-            self.is_connected = True
             self.connection_mode = "BLE"
-            self.after(0, lambda: self._update_status("🟢 Connected via BLE", "connected"))
+            self.after(0, lambda: self._update_conn_ui(True, "Connected via BLE"))
         except Exception as e:
-            print("BLE error:", e)
-            self.after(0, lambda: self._update_status("BLE Connection Failed", "disconnected"))
+            self.after(0, lambda: self._update_conn_ui(False, f"BLE Failed: {e}"))
 
     def connect_serial(self):
         if not HAS_SERIAL:
             return
         port = self.port_combo.get()
-        if port == "No COM Ports":
-            return
         try:
             self.serial_port = serial.Serial(port, 115200, timeout=1)
-            self.is_connected = True
             self.connection_mode = "SERIAL"
-            self._update_status(f"🟢 Connected via {port}", "connected")
+            self._update_conn_ui(True, f"Connected via USB ({port})")
         except Exception as e:
-            self._update_status(f"Serial Error: {e}", "disconnected")
-
-    def enable_simulator(self):
-        self.connection_mode = "SIMULATOR"
-        self.is_connected = True
-        self._update_status("🟡 Simulator Mode Active", "connecting")
+            self._update_conn_ui(False, f"Serial Error ({port})")
 
     def disconnect_all(self):
         if self.ble_client:
@@ -238,15 +305,13 @@ class PisuBotPCApp(ctk.CTk):
             except:
                 pass
             self.serial_port = None
-        self.is_connected = False
         self.connection_mode = "Disconnected"
-        self._update_status("🔴 Disconnected", "disconnected")
+        self._update_conn_ui(False, "Disconnected")
 
     def send_payload(self, char_uuid, payload_str):
         if not self.is_connected:
             return
         print(f"[{self.connection_mode}] Sending to {char_uuid}: {payload_str}")
-
         if self.connection_mode == "BLE" and self.ble_client:
             asyncio.run_coroutine_threadsafe(
                 self.ble_client.write_gatt_char(char_uuid, payload_str.encode('utf-8')),
@@ -258,143 +323,113 @@ class PisuBotPCApp(ctk.CTk):
             except Exception as e:
                 print("Serial write error:", e)
 
-    # ------------------ 2. WATCH & CLOCK TAB ------------------
-    def _build_clock_tab(self):
-        frame = self.tab_clock
+    # ------------------ 3. BOT DISPLAY MODE CARD ------------------
+    def _build_mode_card(self):
+        card = self._create_section_card("BOT DISPLAY MODE")
 
-        card = ctk.CTkFrame(frame, corner_radius=12)
-        card.pack(fill="both", expand=True, padx=15, pady=15)
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(0, 16))
 
-        ctk.CTkLabel(card, text="Clock & Weather Sync", font=ctk.CTkFont(size=18, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        ctk.CTkLabel(card, text="Syncs local PC time, date, and temperature with Pisu Bot", text_color="#A6ADC8").pack(anchor="w", padx=20, pady=(0, 15))
+        self.chip_face = ctk.CTkButton(
+            inner,
+            text="😊 Simple Face",
+            command=lambda: self.set_mode(False),
+            fg_color=COLOR_CLAY_SOFT,
+            text_color=COLOR_CLAY,
+            hover_color=COLOR_CLAY_SOFT,
+            corner_radius=12,
+            height=44,
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        self.chip_face.pack(side="left", expand=True, fill="x", padx=(0, 6))
 
-        self.clock_preview = ctk.CTkLabel(card, text="--:-- | ---, YYYY-MM-DD", font=ctk.CTkFont(size=24, weight="bold"), text_color="#89B4FA")
-        self.clock_preview.pack(pady=10)
+        self.chip_watch = ctk.CTkButton(
+            inner,
+            text="⌚ Watch Mode",
+            command=lambda: self.set_mode(True),
+            fg_color=COLOR_BG,
+            text_color=COLOR_INK_MUTED,
+            hover_color=COLOR_BORDER,
+            corner_radius=12,
+            height=44,
+            font=ctk.CTkFont(size=14)
+        )
+        self.chip_watch.pack(side="left", expand=True, fill="x", padx=(6, 0))
 
-        self.temp_preview = ctk.CTkLabel(card, text="Temperature: 24.5 °C", font=ctk.CTkFont(size=16), text_color="#A6E3A1")
-        self.temp_preview.pack(pady=5)
+    def set_mode(self, watch_mode):
+        self.watch_mode = watch_mode
+        if watch_mode:
+            self.chip_watch.configure(fg_color=COLOR_CLAY_SOFT, text_color=COLOR_CLAY, font=ctk.CTkFont(size=14, weight="bold"))
+            self.chip_face.configure(fg_color=COLOR_BG, text_color=COLOR_INK_MUTED, font=ctk.CTkFont(size=14))
+            self.send_payload(MODE_CHAR_UUID, "1")
+        else:
+            self.chip_face.configure(fg_color=COLOR_CLAY_SOFT, text_color=COLOR_CLAY, font=ctk.CTkFont(size=14, weight="bold"))
+            self.chip_watch.configure(fg_color=COLOR_BG, text_color=COLOR_INK_MUTED, font=ctk.CTkFont(size=14))
+            self.send_payload(MODE_CHAR_UUID, "0")
 
-        btn_frame = ctk.CTkFrame(card, fg_color="transparent")
-        btn_frame.pack(pady=15)
+    # ------------------ 4. GAMES CARD (TIC-TAC-TOE) ------------------
+    def _build_games_card(self):
+        card = self._create_section_card("GAME")
 
-        ctk.CTkButton(btn_frame, text="Sync Time & Temp Now", command=self.sync_time_temp, fg_color="#89B4FA", text_color="#11111B").pack(side="left", padx=10)
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(0, 16))
 
-        # Watch Mode Toggle
-        mode_card = ctk.CTkFrame(card, corner_radius=10)
-        mode_card.pack(fill="x", padx=20, pady=15)
+        icon_box = ctk.CTkFrame(inner, fg_color=COLOR_CLAY_SOFT, corner_radius=10, width=42, height=42)
+        icon_box.pack(side="left", padx=(0, 12))
+        ctk.CTkLabel(icon_box, text="井", font=ctk.CTkFont(size=20, weight="bold"), text_color=COLOR_CLAY).pack(expand=True)
 
-        ctk.CTkLabel(mode_card, text="Bot Display Mode", font=ctk.CTkFont(size=15, weight="bold")).pack(anchor="w", padx=15, pady=(10, 5))
+        info_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        info_frame.pack(side="left", expand=True, fill="x")
 
-        self.mode_switch = ctk.CTkSwitch(mode_card, text="Watch Mode (Show Clock/Temp instead of Animated Face)", command=self.toggle_watch_mode)
-        self.mode_switch.pack(anchor="w", padx=15, pady=(0, 15))
+        ctk.CTkLabel(info_frame, text="Tic-Tac-Toe", font=ctk.CTkFont(size=15, weight="bold"), text_color=COLOR_INK).pack(anchor="w")
+        self.game_lbl = ctk.CTkLabel(info_frame, text="Play against Pisu Bot with live reactions", font=ctk.CTkFont(size=12), text_color=COLOR_INK_MUTED)
+        self.game_lbl.pack(anchor="w")
 
-    def sync_time_temp(self):
-        now = datetime.datetime.now()
-        time_str = now.strftime("%H:%M|%a, %Y-%m-%d")
-        self.clock_preview.configure(text=time_str.replace("|", "  •  "))
-        self.send_payload(TIME_CHAR_UUID, time_str)
-
-        # Temp estimate
-        temp_str = "24.0"
-        self.temp_preview.configure(text=f"Temperature: {temp_str} °C")
-        self.send_payload(TEMP_CHAR_UUID, temp_str)
-
-    def toggle_watch_mode(self):
-        val = "1" if self.mode_switch.get() else "0"
-        self.send_payload(MODE_CHAR_UUID, val)
-
-    def _periodic_sync(self):
-        if self.is_connected:
-            now = datetime.datetime.now()
-            time_str = now.strftime("%H:%M|%a, %Y-%m-%d")
-            self.clock_preview.configure(text=time_str.replace("|", "  •  "))
-            self.send_payload(TIME_CHAR_UUID, time_str)
-        self.after(20000, self._periodic_sync)
-
-    # ------------------ 3. NOTIFICATIONS TAB ------------------
-    def _build_notif_tab(self):
-        frame = self.tab_notif
-
-        card = ctk.CTkFrame(frame, corner_radius=12)
-        card.pack(fill="both", expand=True, padx=15, pady=15)
-
-        ctk.CTkLabel(card, text="Send Desktop Notification Alert", font=ctk.CTkFont(size=18, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        ctk.CTkLabel(card, text="Pisu Bot will play an alert sound and display your notification", text_color="#A6ADC8").pack(anchor="w", padx=20, pady=(0, 15))
-
-        ctk.CTkLabel(card, text="Notification Title:").pack(anchor="w", padx=20, pady=(5, 2))
-        self.notif_title_entry = ctk.CTkEntry(card, width=400, placeholder_text="e.g. Email Alert / Meeting")
-        self.notif_title_entry.pack(anchor="w", padx=20, pady=(0, 10))
-
-        ctk.CTkLabel(card, text="Message Body:").pack(anchor="w", padx=20, pady=(5, 2))
-        self.notif_msg_entry = ctk.CTkEntry(card, width=400, placeholder_text="e.g. Time for your standup call!")
-        self.notif_msg_entry.pack(anchor="w", padx=20, pady=(0, 15))
-
-        ctk.CTkButton(card, text="🔔 Send Notification to Pisu Bot", command=self.send_notification, fg_color="#FAB387", text_color="#11111B").pack(anchor="w", padx=20, pady=10)
-
-    def send_notification(self):
-        title = self.notif_title_entry.get().strip() or "PC Alert"
-        msg = self.notif_msg_entry.get().strip() or "Notification from PC"
-        payload = f"{title}|{msg}"
-        self.send_payload(NOTIFY_CHAR_UUID, payload)
-
-    # ------------------ 4. TIC-TAC-TOE TAB ------------------
-    def _build_game_tab(self):
-        frame = self.tab_game
-
-        card = ctk.CTkFrame(frame, corner_radius=12)
-        card.pack(fill="both", expand=True, padx=15, pady=15)
-
-        ctk.CTkLabel(card, text="Tic-Tac-Toe vs Pisu Bot", font=ctk.CTkFont(size=18, weight="bold")).pack(anchor="w", padx=20, pady=(15, 5))
-        self.game_status = ctk.CTkLabel(card, text="You are X, Pisu Bot is O. Click a cell to move!", text_color="#89B4FA", font=ctk.CTkFont(size=14))
-        self.game_status.pack(anchor="w", padx=20, pady=(0, 10))
-
-        board_frame = ctk.CTkFrame(card, fg_color="transparent")
-        board_frame.pack(pady=10)
+        # Board container
+        self.board_frame = ctk.CTkFrame(card, fg_color="transparent")
+        self.board_frame.pack(pady=(0, 16))
 
         self.board_buttons = []
         self.board_state = [""] * 9
 
         for r in range(3):
-            row_btns = []
             for c in range(3):
                 idx = r * 3 + c
                 btn = ctk.CTkButton(
-                    board_frame,
+                    self.board_frame,
                     text="",
-                    width=80,
-                    height=80,
-                    font=ctk.CTkFont(size=24, weight="bold"),
-                    fg_color="#313244",
-                    hover_color="#45475A",
+                    width=65,
+                    height=65,
+                    font=ctk.CTkFont(size=22, weight="bold"),
+                    fg_color=COLOR_BG,
+                    hover_color=COLOR_BORDER,
+                    text_color=COLOR_INK,
+                    corner_radius=10,
                     command=lambda i=idx: self.make_move(i)
                 )
-                btn.grid(row=r, column=c, padx=5, pady=5)
-                row_btns.append(btn)
-            self.board_buttons.append(row_btns)
+                btn.grid(row=r, column=c, padx=4, pady=4)
+                self.board_buttons.append(btn)
 
-        ctk.CTkButton(card, text="Reset Game", command=self.reset_game, fg_color="#45475A").pack(pady=10)
+        ctk.CTkButton(card, text="Reset Game", command=self.reset_game, fg_color=COLOR_BG, text_color=COLOR_INK_MUTED, hover_color=COLOR_BORDER, height=30).pack(pady=(0, 16))
 
     def reset_game(self):
         self.board_state = [""] * 9
-        for r in range(3):
-            for c in range(3):
-                self.board_buttons[r][c].configure(text="", fg_color="#313244")
-        self.game_status.configure(text="Your turn (X)")
+        for btn in self.board_buttons:
+            btn.configure(text="", fg_color=COLOR_BG)
+        self.game_lbl.configure(text="Your turn (X)")
 
     def make_move(self, idx):
         if self.board_state[idx] != "" or self.check_winner():
             return
         self.board_state[idx] = "X"
-        r, c = idx // 3, idx % 3
-        self.board_buttons[r][c].configure(text="X", fg_color="#89B4FA", text_color="#11111B")
+        self.board_buttons[idx].configure(text="X", fg_color=COLOR_CLAY_SOFT, text_color=COLOR_CLAY)
 
         winner = self.check_winner()
         if winner:
             self.finish_game(winner)
             return
 
-        # Pisu's AI move (O)
-        self.after(400, self.pisu_move)
+        self.after(350, self.pisu_move)
 
     def pisu_move(self):
         empty = [i for i, v in enumerate(self.board_state) if v == ""]
@@ -404,19 +439,14 @@ class PisuBotPCApp(ctk.CTk):
         import random
         choice = random.choice(empty)
         self.board_state[choice] = "O"
-        r, c = choice // 3, choice % 3
-        self.board_buttons[r][c].configure(text="O", fg_color="#F38BA8", text_color="#11111B")
+        self.board_buttons[choice].configure(text="O", fg_color="#FCE7E1", text_color=COLOR_BAD)
 
         winner = self.check_winner()
         if winner:
             self.finish_game(winner)
 
     def check_winner(self):
-        wins = [
-            (0,1,2), (3,4,5), (6,7,8),
-            (0,3,6), (1,4,7), (2,5,8),
-            (0,4,8), (2,4,6)
-        ]
+        wins = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
         for a, b, c in wins:
             if self.board_state[a] != "" and self.board_state[a] == self.board_state[b] == self.board_state[c]:
                 return self.board_state[a]
@@ -426,50 +456,82 @@ class PisuBotPCApp(ctk.CTk):
 
     def finish_game(self, winner):
         if winner == "X":
-            self.game_status.configure(text="🎉 You Won! (Pisu Bot is Sad 😢)")
+            self.game_lbl.configure(text="🎉 You won! Pisu is a little sad about it 😢")
             self.send_payload(RESULT_CHAR_UUID, "win")
         elif winner == "O":
-            self.game_status.configure(text="🤖 Pisu Bot Won! (Pisu Bot is Happy 😄)")
+            self.game_lbl.configure(text="🤖 Pisu wins! It's pretty pleased with itself 😄")
             self.send_payload(RESULT_CHAR_UUID, "lose")
         else:
-            self.game_status.configure(text="🤝 Draw Game!")
+            self.game_lbl.configure(text="🤝 Draw game!")
             self.send_payload(RESULT_CHAR_UUID, "draw")
 
-    # ------------------ 5. REACTIONS TAB ------------------
-    def _build_express_tab(self):
-        frame = self.tab_express
+    # ------------------ 5. NOTIFICATIONS CARD ------------------
+    def _build_notifications_card(self):
+        card = self._create_section_card("NOTIFICATIONS")
 
-        card = ctk.CTkFrame(frame, corner_radius=12)
-        card.pack(fill="both", expand=True, padx=15, pady=15)
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(0, 16))
 
-        ctk.CTkLabel(card, text="Mood & Expression Tester", font=ctk.CTkFont(size=18, weight="bold")).pack(anchor="w", padx=20, pady=(20, 5))
-        ctk.CTkLabel(card, text="Test Pisu Bot's sound & facial reactions manually", text_color="#A6ADC8").pack(anchor="w", padx=20, pady=(0, 20))
+        ctk.CTkLabel(inner, text="Send custom desktop alert to Pisu Bot", font=ctk.CTkFont(size=13), text_color=COLOR_INK_MUTED).pack(anchor="w", pady=(0, 10))
 
-        grid_frame = ctk.CTkFrame(card, fg_color="transparent")
-        grid_frame.pack(pady=10)
+        entry_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        entry_frame.pack(fill="x")
+
+        self.notif_title_entry = ctk.CTkEntry(entry_frame, placeholder_text="Title (e.g. Email / Call)", fg_color=COLOR_BG, border_color=COLOR_BORDER, text_color=COLOR_INK)
+        self.notif_title_entry.pack(side="left", expand=True, fill="x", padx=(0, 6))
+
+        self.notif_msg_entry = ctk.CTkEntry(entry_frame, placeholder_text="Message body", fg_color=COLOR_BG, border_color=COLOR_BORDER, text_color=COLOR_INK)
+        self.notif_msg_entry.pack(side="left", expand=True, fill="x", padx=(6, 6))
+
+        send_btn = ctk.CTkButton(entry_frame, text="Send Alert", command=self.send_notification, fg_color=COLOR_CLAY, hover_color="#B3654B", text_color="#FFFFFF")
+        send_btn.pack(side="left")
+
+    def send_notification(self):
+        title = self.notif_title_entry.get().strip() or "PC Alert"
+        msg = self.notif_msg_entry.get().strip() or "Notification from PC"
+        payload = f"{title}|{msg}"
+        self.send_payload(NOTIFY_CHAR_UUID, payload)
+
+    # ------------------ 6. REACTIONS CARD ------------------
+    def _build_reactions_card(self):
+        card = self._create_section_card("REACTIONS TESTER")
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(0, 16))
 
         reactions = [
-            ("😄 Happy (Pat)", "win", "#A6E3A1"),
-            ("😵 Dizzy (Shake)", "lose", "#F9E2AF"),
-            ("😨 Scared (Pickup)", "win", "#89B4FA"),
-            ("😢 Sad (Idle)", "win", "#CBA6F7"),
-            ("😠 Angry", "lose", "#F38BA8"),
-            ("😐 Normal", "draw", "#45475A"),
+            ("😄 Happy", "lose"),
+            ("😵 Dizzy", "win"),
+            ("😨 Scared", "win"),
+            ("😢 Sad", "win"),
+            ("😠 Angry", "lose"),
+            ("😐 Normal", "draw"),
         ]
 
-        for idx, (label, payload, color) in enumerate(reactions):
+        for idx, (label, payload) in enumerate(reactions):
             r, c = idx // 3, idx % 3
             btn = ctk.CTkButton(
-                grid_frame,
+                inner,
                 text=label,
-                width=180,
-                height=55,
-                font=ctk.CTkFont(size=14, weight="bold"),
-                fg_color=color,
-                text_color="#11111B",
-                command=lambda p=payload: self.send_payload(RESULT_CHAR_UUID, p)
+                command=lambda p=payload: self.send_payload(RESULT_CHAR_UUID, p),
+                fg_color=COLOR_BG,
+                hover_color=COLOR_BORDER,
+                text_color=COLOR_INK,
+                border_color=COLOR_BORDER,
+                border_width=1,
+                corner_radius=10,
+                height=38
             )
-            btn.grid(row=r, column=c, padx=10, pady=10)
+            btn.grid(row=r, column=c, padx=4, pady=4, sticky="ew")
+            inner.grid_columnconfigure(c, weight=1)
+
+    def _periodic_sync(self):
+        if self.is_connected:
+            now = datetime.datetime.now()
+            time_str = now.strftime("%H:%M|%a, %Y-%m-%d")
+            self.send_payload(TIME_CHAR_UUID, time_str)
+            self.send_payload(TEMP_CHAR_UUID, f"{self.temperature_c:.1f}")
+        self.after(20000, self._periodic_sync)
 
 if __name__ == "__main__":
     app = PisuBotPCApp()
