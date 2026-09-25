@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.zantech.desk_bot_app"
+    namespace = "com.roboza.pisu_bot"
     // permission_handler_android requires compiling against API 37+;
     // Flutter's own default (flutter.compileSdkVersion) was still 36 at
     // the time this was written, so it's overridden explicitly here.
@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.zantech.desk_bot_app"
+        applicationId = "com.roboza.pisu_bot"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

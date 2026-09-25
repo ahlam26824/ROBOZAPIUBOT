@@ -9,7 +9,7 @@ extern U8G2_SH1106_128X64_NONAME_F_HW_I2C display;
 // setup(), before drawing anything.
 void initDisplay();
 
-// Shows the "ZAN Tech / Desk Bot" boot splash, holds it briefly, then
+// Shows the "Roboza / Pisu Bot" boot splash, holds it briefly, then
 // slides it upward off the screen instead of cutting away abruptly. Call
 // once from setup(), right after initDisplay().
 void showBootSplash();

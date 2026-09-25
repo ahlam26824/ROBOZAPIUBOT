@@ -1,9 +1,9 @@
-# Zani
+# Pisu Bot
 
 A small ESP32-C3 desk companion robot with an animated face, real sensor
 reactions, a Bluetooth-connected Android app, a hidden mini-game on the
 bot itself, and a Tic-Tac-Toe game in the app that the bot actually
-reacts to. Built by **ZAN Tech**.
+reacts to. Built by **Roboza**.
 
 This document covers the full architecture, how to build both halves
 from source, and how to actually use the finished product — written for
@@ -24,7 +24,7 @@ through it.
 - [Building and flashing the firmware](#building-and-flashing-the-firmware)
 - [App architecture](#app-architecture)
 - [Building the app](#building-the-app)
-- [How to use Zani](#how-to-use-zani) (end-user guide)
+- [How to use Pisu Bot](#how-to-use-zani) (end-user guide)
 - [Known limitations](#known-limitations)
 - [Troubleshooting](#troubleshooting)
 
@@ -149,7 +149,7 @@ are all paused while playing it.
 | File | Role |
 |---|---|
 | `types.h` | The `Expression` enum (Normal/Happy/Sad/Scared/Dizzy/Angry/Sleepy — Sleepy is reserved, not currently triggered by anything) |
-| `DisplayDriver.h/.cpp` | Owns the shared `display` object, the boot splash ("Zani" / "by ZAN Tech"), and one-line/two-line status messages |
+| `DisplayDriver.h/.cpp` | Owns the shared `display` object, the boot splash ("Pisu Bot" / "by Roboza"), and one-line/two-line status messages |
 | `Faces.h/.cpp` | Every expression, drawn from one shared rounded-rectangle eye shape. Mood comes from size/position/motion/an optional eyelid-tilt cutout — not a different icon per mood. Also: the idle glint dot, Dizzy's orbiting dot, Sad's falling tear, and the autonomous idle "look around" |
 | `Accelerometer.h/.cpp` | ADXL345 driver — shake detection (magnitude jolt), pickup detection (sustained cosine-similarity deviation from a self-calibrated resting orientation), and tilt (feeds the idle eye-tracking effect) |
 | `TouchSensor.h/.cpp` | Resolves a touch into short/medium/long tiers by how long it was held |
@@ -164,7 +164,7 @@ are all paused while playing it.
 ## Bluetooth protocol
 
 One GATT service, five write-only UTF-8 characteristics (the phone
-writes to the bot; nothing is read back). Device name: **"Zani Bot"**.
+writes to the bot; nothing is read back). Device name: **"Pisu Bot"**.
 
 | Characteristic | Format | Written by the app when |
 |---|---|---|
@@ -248,10 +248,10 @@ Releases page, so anyone can install it without building from source:
 cd app
 flutter build apk --release
 gh release create vX.Y.Z "build/app/outputs/flutter-apk/app-release.apk" \
-  --title "Zani App vX.Y.Z" --notes "What changed in this version"
+  --title "Pisu Bot App vX.Y.Z" --notes "What changed in this version"
 ```
 
-## How to use Zani
+## How to use Pisu Bot
 
 ### First-time setup
 
@@ -300,7 +300,7 @@ narrow that down to specific apps instead of everything.
 
 ### Playing Tic-Tac-Toe
 
-Open the **Game** card and tap **Play**. You're X, Zani is O. The AI is
+Open the **Game** card and tap **Play**. You're X, Pisu Bot is O. The AI is
 deliberately beatable (about 60% of the time it plays well — winning or
 blocking when it can, otherwise picking randomly) so games are genuinely
 winnable, not just a formality. When a game ends:

@@ -11,9 +11,9 @@ void initDisplay() {
 
 void showBootSplash() {
   // The product name gets the big font since it's short enough to
-  // afford it; "by ZAN Tech" is the small subtitle underneath.
-  const char* line1 = "Pisu";
-  const char* line2 = "by ZAN Tech";
+  // afford it; "by Roboza" is the small subtitle underneath.
+  const char* line1 = "Pisu Bot";
+  const char* line2 = "by Roboza";
 
   display.setFont(u8g2_font_ncenB18_tr);
   int w1 = display.getStrWidth(line1);

@@ -1,8 +1,8 @@
-// Zani (by ZAN Tech) -- Display + Motion + Sound + Eyes + Bluetooth + Game.
+// Pisu Bot (by Roboza) -- Display + Motion + Sound + Eyes + Bluetooth + Game.
 //
 //   types.h              - the Expression enum
 //   DisplayDriver.h/.cpp - owns the OLED display object, the boot splash
-//                          ("Zani" / "by ZAN Tech"), and status messages
+//                          ("Pisu Bot" / "by Roboza"), and status messages
 //   Faces.h/.cpp         - the expressions (one shared eye shape, plus
 //                          Dizzy's orbiting punch-through dot and Sad's
 //                          falling tear)
@@ -18,7 +18,7 @@
 //                          shake -> brief Dizzy spin -> Angry (if still
 //                          shaking) -> Normal+happy once it stops; a pat
 //                          plays Happy without changing the expression
-//   BLEComm.h/.cpp       - the BLE link to the "Zani Bot" phone app
+//   BLEComm.h/.cpp       - the BLE link to the "Pisu Bot Bot" phone app
 //                          (time, temperature, watch-mode on/off, and
 //                          forwarded phone notifications -- each plays
 //                          the alarm sound, see loop()) -- advertising

@@ -1,4 +1,4 @@
-package com.zantech.desk_bot_app
+package com.roboza.pisu_bot
 
 import io.flutter.embedding.android.FlutterActivity
 
