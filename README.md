@@ -24,6 +24,7 @@ through it.
 - [Building and flashing the firmware](#building-and-flashing-the-firmware)
 - [App architecture](#app-architecture)
 - [Building the app](#building-the-app)
+- [PC Software (Windows Controller)](#pc-software-windows-controller)
 - [How to use Pisu Bot](#how-to-use-zani) (end-user guide)
 - [Known limitations](#known-limitations)
 - [Troubleshooting](#troubleshooting)
