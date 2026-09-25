@@ -51,6 +51,7 @@
 #include "BLEComm.h"
 #include "WatchScreen.h"
 #include "DinoGame.h"
+#include "FocusScreen.h"
 
 enum AppMode { MODE_NORMAL, MODE_GAME };
 AppMode appMode = MODE_NORMAL;
@@ -66,9 +67,6 @@ void setup() {
   BLEComm::begin();
   BLEComm::startPairing(); // advertise from boot -- always connectable, no gesture needed
 
-  // The accelerometer needs a moment, sitting still, to learn its own
-  // resting noise level (see Accelerometer.cpp) -- let the user know why
-  // nothing else is happening yet.
   showMessage("Calibrating sensors...", "Please keep me still");
   Accelerometer::begin();
   Sound::begin();
@@ -78,32 +76,32 @@ void setup() {
 void loop() {
   Accelerometer::update(); // once per loop -- see Behavior.h
   TouchSensor::update();
+  FocusScreen::update();
 
   display.clearBuffer();
 
   if (appMode == MODE_GAME) {
     DinoGame::update(TouchSensor::wasTapped(), TouchSensor::wasShortReleased());
 
-    // Exiting the game is the same ~3s hold used to enter it -- only
-    // meaningful once the game has actually ended.
     if (DinoGame::isGameOver() && TouchSensor::wasMediumReleased()) {
       appMode = MODE_NORMAL;
-      Behavior::begin(); // fresh idle state -- coming back from the game counts as a reset
+      Behavior::begin();
     }
 
     DinoGame::draw();
 
   } else { // MODE_NORMAL
+    // 7-second touch hold -> Automatic 26-minute Focus Mode Timer!
+    if (TouchSensor::wasFocusPressed()) {
+      FocusScreen::startFocus(26);
+    }
+
     if (TouchSensor::wasMediumReleased()) {
       appMode = MODE_GAME;
       DinoGame::begin();
     }
 
-    if (appMode == MODE_NORMAL) { // didn't just switch away above
-      // A brief one-time flash when the phone app actually connects --
-      // BLEComm keeps advertising in the background the rest of the
-      // time (including automatically after a disconnect), so there's
-      // no separate "pairing mode" to enter or leave anymore.
+    if (appMode == MODE_NORMAL) {
       static bool wasConnected = false;
       bool isConnected = BLEComm::isConnected();
       if (isConnected && !wasConnected) {
@@ -113,18 +111,27 @@ void loop() {
       }
       wasConnected = isConnected;
 
-      // A phone notification arrived (the app forwards these once BLE
-      // is connected and notification access is granted -- see the
-      // app's NotificationForwarder) -- just an alert sound for now, no
-      // on-screen banner; add one later if that's wanted.
       if (BLEComm::hasNewNotification()) {
         Sound::playAlarmSound();
       }
 
-      // The in-app Tic-Tac-Toe game finished (see the app's
-      // TicTacToeScreen) -- the bot reacts as the opponent it just
-      // played. A draw isn't surfaced as a reaction; there's no natural
-      // "how does the bot feel about a tie" response.
+      if (BLEComm::hasNewFocusCommand()) {
+        String cmd = BLEComm::getFocusCommand();
+        if (cmd.startsWith("focus:")) {
+          int mins = cmd.substring(6).toInt();
+          if (mins <= 0) FocusScreen::stopFocus();
+          else FocusScreen::startFocus(mins);
+        } else if (cmd == "sw:start") {
+          FocusScreen::startStopwatch();
+        } else if (cmd == "sw:stop") {
+          FocusScreen::pauseStopwatch();
+        } else if (cmd == "sw:reset") {
+          FocusScreen::resetStopwatch();
+        } else if (cmd == "sw:off") {
+          FocusScreen::exitStopwatch();
+        }
+      }
+
       if (BLEComm::hasNewGameResult()) {
         String result = BLEComm::getGameResult();
         if (result == "win") {
@@ -137,20 +144,12 @@ void loop() {
       bool watchMode = BLEComm::wantsWatchMode();
       Behavior::update(/* faceModeActive = */ !watchMode);
 
-      // A genuine reaction pops the Face up over the Clock screen: a
-      // shake's Dizzy/Angry, a pickup's Scared, or Behavior's own
-      // "temporary reaction" flag (a pat's Happy, or a game result's
-      // Happy/Sad -- see Behavior::isShowingTimedReaction()). That flag
-      // matters here specifically because a game-result Sad is NOT the
-      // same thing as idle-timeout Sad -- checking the flag rather than
-      // just "expr == SAD" is what keeps the two apart, since
-      // idle-timeout Sad deliberately stays hidden behind the Clock
-      // screen (it can't even fire while faceModeActive is false) while
-      // a game result should still be seen even in watch mode.
       Expression expr = Faces::getCurrentExpression();
       bool reacting = (expr == DIZZY || expr == ANGRY || expr == SCARED || Behavior::isShowingTimedReaction());
 
-      if (watchMode && !reacting) {
+      if ((FocusScreen::isFocusActive() || FocusScreen::isStopwatchActive()) && !reacting) {
+        FocusScreen::draw();
+      } else if (watchMode && !reacting) {
         WatchScreen::draw();
       } else {
         Faces::draw();

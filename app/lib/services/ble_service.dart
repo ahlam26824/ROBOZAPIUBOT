@@ -17,6 +17,7 @@ class BleService extends ChangeNotifier {
   static final Guid notifyCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0004");
   static final Guid modeCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0005");
   static final Guid resultCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0006");
+  static final Guid focusCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0007");
 
   BluetoothDevice? _device;
   BluetoothCharacteristic? _timeChar;
@@ -24,6 +25,7 @@ class BleService extends ChangeNotifier {
   BluetoothCharacteristic? _notifyChar;
   BluetoothCharacteristic? _modeChar;
   BluetoothCharacteristic? _resultChar;
+  BluetoothCharacteristic? _focusChar;
 
   bool isScanning = false;
   bool isConnected = false;
@@ -129,6 +131,7 @@ class BleService extends ChangeNotifier {
           if (c.uuid == notifyCharUuid) _notifyChar = c;
           if (c.uuid == modeCharUuid) _modeChar = c;
           if (c.uuid == resultCharUuid) _resultChar = c;
+          if (c.uuid == focusCharUuid) _focusChar = c;
         }
       }
     }
@@ -137,11 +140,6 @@ class BleService extends ChangeNotifier {
     statusMessage = "Connected to $deviceName";
     notifyListeners();
 
-    // Only start watching for a disconnect AFTER we know we're actually
-    // connected. Subscribing any earlier would immediately deliver the
-    // device's pre-connection "disconnected" state and flip the UI back
-    // to "not connected" a moment after a genuinely successful connect --
-    // this was a real bug, not a hypothetical one.
     await _connSub?.cancel();
     _connSub = device.connectionState.listen((state) {
       debugPrint("BLE: connectionState -> $state");
@@ -194,10 +192,10 @@ class BleService extends ChangeNotifier {
     await _writeString(_modeChar, watchMode ? "1" : "0");
   }
 
-  /// Reports a finished Tic-Tac-Toe game (see TicTacToeScreen), from the
-  /// PHONE USER's perspective -- "win"/"lose"/"draw". The bot reacts as
-  /// the opponent it just played (see Behavior::reactToGameResult() in
-  /// the firmware): a user win makes it Sad, a user loss makes it Happy.
+  Future<void> sendFocusCommand(String cmd) async {
+    await _writeString(_focusChar ?? _modeChar, cmd);
+  }
+
   Future<void> sendGameResult(String result) async {
     await _writeString(_resultChar, result);
   }

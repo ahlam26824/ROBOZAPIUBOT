@@ -45,6 +45,10 @@ namespace TouchSensor {
   bool wasMediumReleased();
 
   // True once, on the update() call where a continuous touch reaches
+  // the 7-second mark (fires immediately to start Focus Mode).
+  bool wasFocusPressed();
+
+  // True once, on the update() call where a continuous touch reaches
   // the 8-second mark (fires immediately, does not wait for release).
   bool wasLongPressed();
 

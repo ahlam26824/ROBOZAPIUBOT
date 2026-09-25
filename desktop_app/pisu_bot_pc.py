@@ -33,6 +33,7 @@ TEMP_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0003"
 NOTIFY_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0004"
 MODE_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0005"
 RESULT_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0006"
+FOCUS_CHAR_UUID   = "a1b2c3d4-0001-4000-8000-00805f9b0007"
 
 # Exact App Palette matching Flutter app main.dart
 COLOR_BG        = "#F5F4EE"
@@ -52,7 +53,7 @@ class PisuBotPCApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Pisu Bot")
-        self.geometry("860x780")
+        self.geometry("860x820")
         self.minsize(780, 680)
         self.configure(fg_color=COLOR_BG)
 
@@ -65,6 +66,10 @@ class PisuBotPCApp(ctk.CTk):
 
         self.watch_mode = False
         self.temperature_c = 24.5
+
+        self.selected_focus_mins = 26
+        self.focus_running = False
+        self.sw_running = False
 
         # Async Loop thread for BLE
         self.loop = asyncio.new_event_loop()
@@ -116,13 +121,16 @@ class PisuBotPCApp(ctk.CTk):
         # 3. Bot Display Mode Section Card
         self._build_mode_card()
 
-        # 4. Games Section Card (Tic-Tac-Toe)
+        # 4. Focus Mode & Stopwatch Card
+        self._build_focus_card()
+
+        # 5. Games Section Card (Tic-Tac-Toe)
         self._build_games_card()
 
-        # 5. Notifications Section Card
+        # 6. Notifications Section Card
         self._build_notifications_card()
 
-        # 6. Reactions Section Card
+        # 7. Reactions Section Card
         self._build_reactions_card()
 
     # ------------------ 1. WATCHFACE HERO ------------------
@@ -367,7 +375,128 @@ class PisuBotPCApp(ctk.CTk):
             self.chip_watch.configure(fg_color=COLOR_BG, text_color=COLOR_INK_MUTED, font=ctk.CTkFont(size=14))
             self.send_payload(MODE_CHAR_UUID, "0")
 
-    # ------------------ 4. GAMES CARD (TIC-TAC-TOE) ------------------
+    # ------------------ 4. FOCUS MODE & STOPWATCH CARD ------------------
+    def _build_focus_card(self):
+        card = self._create_section_card("FOCUS MODE & STOPWATCH")
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(0, 16))
+
+        # Focus Section Header
+        ctk.CTkLabel(inner, text="⏱️ Focus Timer", font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_INK).pack(anchor="w", pady=(0, 4))
+        ctk.CTkLabel(inner, text="Touch for 7s on Pisu Bot or select timer below", font=ctk.CTkFont(size=12), text_color=COLOR_INK_MUTED).pack(anchor="w", pady=(0, 8))
+
+        # Preset Chips
+        chip_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        chip_frame.pack(anchor="w", pady=(0, 10))
+
+        self.focus_chips = {}
+        for m in [15, 26, 45, 60]:
+            btn = ctk.CTkButton(
+                chip_frame,
+                text=f"{m}m{' (Def)' if m==26 else ''}",
+                width=80,
+                height=32,
+                corner_radius=16,
+                fg_color=COLOR_CLAY_SOFT if m==26 else COLOR_BG,
+                text_color=COLOR_CLAY if m==26 else COLOR_INK_MUTED,
+                command=lambda mins=m: self._select_focus_mins(mins)
+            )
+            btn.pack(side="left", padx=4)
+            self.focus_chips[m] = btn
+
+        # Start Focus Button
+        self.focus_start_btn = ctk.CTkButton(
+            inner,
+            text="Start Focus Timer (26m)",
+            command=self.toggle_focus_timer,
+            fg_color=COLOR_CLAY,
+            hover_color="#B3654B",
+            text_color="#FFFFFF",
+            corner_radius=10,
+            height=38
+        )
+        self.focus_start_btn.pack(fill="x", pady=(0, 14))
+
+        # Divider
+        ctk.CTkFrame(inner, height=1, fg_color=COLOR_BORDER).pack(fill="x", pady=6)
+
+        # Stopwatch Section Header
+        ctk.CTkLabel(inner, text="⏱️ Stopwatch", font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_INK).pack(anchor="w", pady=(8, 4))
+
+        sw_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        sw_frame.pack(fill="x", pady=(4, 0))
+
+        self.sw_toggle_btn = ctk.CTkButton(
+            sw_frame,
+            text="Start",
+            command=self.toggle_stopwatch,
+            fg_color=COLOR_CLAY_SOFT,
+            text_color=COLOR_CLAY,
+            corner_radius=10,
+            height=34
+        )
+        self.sw_toggle_btn.pack(side="left", expand=True, fill="x", padx=3)
+
+        ctk.CTkButton(
+            sw_frame,
+            text="Reset",
+            command=lambda: self.send_payload(FOCUS_CHAR_UUID, "sw:reset"),
+            fg_color=COLOR_BG,
+            text_color=COLOR_INK,
+            border_color=COLOR_BORDER,
+            border_width=1,
+            corner_radius=10,
+            height=34
+        ).pack(side="left", expand=True, fill="x", padx=3)
+
+        ctk.CTkButton(
+            sw_frame,
+            text="Exit",
+            command=self.exit_stopwatch,
+            fg_color=COLOR_BG,
+            text_color=COLOR_INK_MUTED,
+            border_color=COLOR_BORDER,
+            border_width=1,
+            corner_radius=10,
+            height=34
+        ).pack(side="left", expand=True, fill="x", padx=3)
+
+    def _select_focus_mins(self, mins):
+        self.selected_focus_mins = mins
+        for m, btn in self.focus_chips.items():
+            if m == mins:
+                btn.configure(fg_color=COLOR_CLAY_SOFT, text_color=COLOR_CLAY)
+            else:
+                btn.configure(fg_color=COLOR_BG, text_color=COLOR_INK_MUTED)
+        self.focus_start_btn.configure(text=f"Start Focus Timer ({mins}m)")
+
+    def toggle_focus_timer(self):
+        if self.focus_running:
+            self.send_payload(FOCUS_CHAR_UUID, "focus:0")
+            self.focus_running = False
+            self.focus_start_btn.configure(text=f"Start Focus Timer ({self.selected_focus_mins}m)", fg_color=COLOR_CLAY)
+        else:
+            self.send_payload(FOCUS_CHAR_UUID, f"focus:{self.selected_focus_mins}")
+            self.focus_running = True
+            self.focus_start_btn.configure(text="Stop Focus Timer", fg_color=COLOR_BAD)
+
+    def toggle_stopwatch(self):
+        if self.sw_running:
+            self.send_payload(FOCUS_CHAR_UUID, "sw:stop")
+            self.sw_running = False
+            self.sw_toggle_btn.configure(text="Start")
+        else:
+            self.send_payload(FOCUS_CHAR_UUID, "sw:start")
+            self.sw_running = True
+            self.sw_toggle_btn.configure(text="Pause")
+
+    def exit_stopwatch(self):
+        self.send_payload(FOCUS_CHAR_UUID, "sw:off")
+        self.sw_running = False
+        self.sw_toggle_btn.configure(text="Start")
+
+    # ------------------ 5. GAMES CARD (TIC-TAC-TOE) ------------------
     def _build_games_card(self):
         card = self._create_section_card("GAME")
 
@@ -465,7 +594,7 @@ class PisuBotPCApp(ctk.CTk):
             self.game_lbl.configure(text="🤝 Draw game!")
             self.send_payload(RESULT_CHAR_UUID, "draw")
 
-    # ------------------ 5. NOTIFICATIONS CARD ------------------
+    # ------------------ 6. NOTIFICATIONS CARD ------------------
     def _build_notifications_card(self):
         card = self._create_section_card("NOTIFICATIONS")
 
@@ -492,7 +621,7 @@ class PisuBotPCApp(ctk.CTk):
         payload = f"{title}|{msg}"
         self.send_payload(NOTIFY_CHAR_UUID, payload)
 
-    # ------------------ 6. REACTIONS CARD ------------------
+    # ------------------ 7. REACTIONS CARD ------------------
     def _build_reactions_card(self):
         card = self._create_section_card("REACTIONS TESTER")
 

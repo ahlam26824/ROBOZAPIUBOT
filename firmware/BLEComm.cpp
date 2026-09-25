@@ -13,6 +13,7 @@ namespace {
   const char* NOTIFY_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0004";
   const char* MODE_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0005";
   const char* RESULT_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0006";
+  const char* FOCUS_CHAR_UUID   = "a1b2c3d4-0001-4000-8000-00805f9b0007";
 
   BLEServer* server = nullptr;
   BLECharacteristic* timeChar = nullptr;
@@ -20,6 +21,7 @@ namespace {
   BLECharacteristic* notifyChar = nullptr;
   BLECharacteristic* modeChar = nullptr;
   BLECharacteristic* resultChar = nullptr;
+  BLECharacteristic* focusChar = nullptr;
 
   bool connected = false;
   bool pairing = false;
@@ -37,6 +39,9 @@ namespace {
 
   bool newModeFlag = false;
   bool watchModeRequested = false;
+
+  bool newFocusFlag = false;
+  String latestFocusCommand = "";
 
   bool newGameResultFlag = false;
   String lastGameResult = "";
@@ -110,25 +115,26 @@ namespace {
     }
   };
 
+  class FocusCallbacks : public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic* c) override {
+      latestFocusCommand = c->getValue();
+      newFocusFlag = true;
+    }
+  };
+
   ServerCallbacks serverCallbacks;
   TimeCallbacks timeCallbacks;
   TempCallbacks tempCallbacks;
   NotifyCallbacks notifyCallbacks;
   ModeCallbacks modeCallbacks;
   ResultCallbacks resultCallbacks;
+  FocusCallbacks focusCallbacks;
 }
 
 namespace BLEComm {
 
   void begin() {
     BLEDevice::init(DEVICE_NAME);
-
-    // The default BLE packet (ATT MTU) only fits ~20 usable bytes per
-    // write -- easily overflowed by a real "Title|Message" notification
-    // payload, silently truncating it. Requesting a larger MTU here (the
-    // app's connect() call requests 512 on its side; negotiation settles
-    // on the lower of the two) prevents that class of bug entirely
-    // rather than hoping every message stays short.
     BLEDevice::setMTU(247);
 
     server = BLEDevice::createServer();
@@ -151,25 +157,26 @@ namespace BLEComm {
     resultChar = service->createCharacteristic(RESULT_CHAR_UUID, BLECharacteristic::PROPERTY_WRITE);
     resultChar->setCallbacks(&resultCallbacks);
 
+    focusChar = service->createCharacteristic(FOCUS_CHAR_UUID, BLECharacteristic::PROPERTY_WRITE);
+    focusChar->setCallbacks(&focusCallbacks);
+
     service->start();
 
     BLEAdvertising* advertising = BLEDevice::getAdvertising();
     advertising->addServiceUUID(SERVICE_UUID);
     advertising->setScanResponse(true);
 
-    Serial.println("BLE: ready (firmware.ino calls startPairing() right after this, so advertising begins immediately)");
+    Serial.println("BLE: ready with Focus & Stopwatch support");
   }
 
   void startPairing() {
     pairing = true;
     BLEDevice::getAdvertising()->start();
-    Serial.println("BLE: advertising started");
   }
 
   void stopPairing() {
     pairing = false;
     BLEDevice::getAdvertising()->stop();
-    Serial.println("BLE: advertising stopped");
   }
 
   bool isPairing() { return pairing && !connected; }
@@ -200,6 +207,12 @@ namespace BLEComm {
     return false;
   }
   bool wantsWatchMode() { return watchModeRequested; }
+
+  bool hasNewFocusCommand() {
+    if (newFocusFlag) { newFocusFlag = false; return true; }
+    return false;
+  }
+  String getFocusCommand() { return latestFocusCommand; }
 
   bool hasNewGameResult() {
     if (newGameResultFlag) { newGameResultFlag = false; return true; }

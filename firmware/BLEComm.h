@@ -52,6 +52,9 @@ namespace BLEComm {
   bool hasNewMode();
   bool wantsWatchMode();
 
+  bool hasNewFocusCommand();
+  String getFocusCommand();
+
   bool hasNewGameResult();
   String getGameResult(); // "win", "lose", or "draw" -- see the header comment above
 

@@ -141,6 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 14),
             _ModeCard(watchMode: _watchMode, onChanged: _ble.isConnected ? _onToggleWatchMode : null),
             const SizedBox(height: 14),
+            _FocusModeCard(ble: _ble),
+            const SizedBox(height: 14),
             _GamesCard(
               onPlayTicTacToe: () {
                 Navigator.of(context).push(
@@ -513,3 +515,139 @@ class _GamesCard extends StatelessWidget {
     );
   }
 }
+
+class _FocusModeCard extends StatefulWidget {
+  final BleService ble;
+  const _FocusModeCard({required this.ble});
+
+  @override
+  State<_FocusModeCard> createState() => _FocusModeCardState();
+}
+
+class _FocusModeCardState extends State<_FocusModeCard> {
+  int _selectedMins = 26;
+  bool _focusRunning = false;
+  bool _swRunning = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Focus Mode & Stopwatch',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.timer_outlined, color: AppColors.clay, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Focus Timer ($_selectedMins min)',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [15, 26, 45, 60].map((m) {
+                final selected = _selectedMins == m;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text('${m}m${m == 26 ? ' (Def)' : ''}'),
+                    selected: selected,
+                    selectedColor: AppColors.claySoft,
+                    backgroundColor: AppColors.background,
+                    labelStyle: TextStyle(
+                      color: selected ? AppColors.clay : AppColors.inkMuted,
+                      fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    onSelected: (_) {
+                      setState(() => _selectedMins = m);
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: widget.ble.isConnected
+                      ? () {
+                          if (_focusRunning) {
+                            widget.ble.sendFocusCommand('focus:0');
+                            setState(() => _focusRunning = false);
+                          } else {
+                            widget.ble.sendFocusCommand('focus:$_selectedMins');
+                            setState(() => _focusRunning = true);
+                          }
+                        }
+                      : null,
+                  icon: Icon(_focusRunning ? Icons.stop : Icons.play_arrow),
+                  label: Text(_focusRunning ? 'Stop Focus' : 'Start Focus (${_selectedMins}m)'),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 28, color: AppColors.border),
+          Row(
+            children: [
+              const Icon(Icons.timer_10_outlined, color: AppColors.clay, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Stopwatch',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: widget.ble.isConnected
+                      ? () {
+                          if (_swRunning) {
+                            widget.ble.sendFocusCommand('sw:stop');
+                            setState(() => _swRunning = false);
+                          } else {
+                            widget.ble.sendFocusCommand('sw:start');
+                            setState(() => _swRunning = true);
+                          }
+                        }
+                      : null,
+                  icon: Icon(_swRunning ? Icons.pause : Icons.play_arrow),
+                  label: Text(_swRunning ? 'Pause' : 'Start'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: widget.ble.isConnected
+                    ? () {
+                        widget.ble.sendFocusCommand('sw:reset');
+                      }
+                    : null,
+                child: const Text('Reset'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: widget.ble.isConnected
+                    ? () {
+                        widget.ble.sendFocusCommand('sw:off');
+                        setState(() => _swRunning = false);
+                      }
+                    : null,
+                child: const Text('Exit'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
