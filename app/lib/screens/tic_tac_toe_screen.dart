@@ -137,10 +137,10 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
         _resultText = "It's a draw!";
       } else if (userWon) {
         _wins++;
-        _resultText = 'You win! Zani is a little sad about it.';
+        _resultText = 'You win! Pisu is a little sad about it.';
       } else {
         _losses++;
-        _resultText = 'Zani wins! It\'s pretty pleased with itself.';
+        _resultText = 'Pisu wins! It\'s pretty pleased with itself.';
       }
     });
 
@@ -164,7 +164,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                 _gameOver
                     ? _resultText!
                     : _botThinking
-                        ? 'Zani is thinking...'
+                        ? 'Pisu is thinking...'
                         : 'Your turn -- you\'re X',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.ink),
@@ -192,7 +192,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
               if (!widget.ble.isConnected) ...[
                 const SizedBox(height: 16),
                 const Text(
-                  'Not connected to Zani Bot -- it won\'t react to this game right now.',
+                  'Not connected to Pisu Bot -- it won\'t react to this game right now.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12, color: AppColors.inkMuted),
                 ),
@@ -223,7 +223,7 @@ class _ScoreRow extends StatelessWidget {
       children: [
         stat('You', wins),
         stat('Draws', draws),
-        stat('Zani', losses),
+        stat('Pisu', losses),
       ],
     );
   }

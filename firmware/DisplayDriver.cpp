@@ -12,7 +12,7 @@ void initDisplay() {
 void showBootSplash() {
   // The product name gets the big font since it's short enough to
   // afford it; "by ZAN Tech" is the small subtitle underneath.
-  const char* line1 = "Zani";
+  const char* line1 = "Pisu";
   const char* line2 = "by ZAN Tech";
 
   display.setFont(u8g2_font_ncenB18_tr);

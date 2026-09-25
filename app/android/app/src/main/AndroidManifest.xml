@@ -15,7 +15,7 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
 
     <application
-        android:label="Zani Bot"
+        android:label="Pisu Bot"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
@@ -23,7 +23,7 @@
              user grants "Notification access" in Settings (see
              NotificationListenerService.requestPermission() in the app). -->
         <service
-            android:label="Zani Bot notifications"
+            android:label="Pisu Bot notifications"
             android:name="notification.listener.service.NotificationListener"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">

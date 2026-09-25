@@ -9,7 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 /// firmware). One custom service, five write-only UTF-8 characteristics.
 /// These UUIDs must match the firmware exactly.
 class BleService extends ChangeNotifier {
-  static const String deviceName = "Zani Bot";
+  static const String deviceName = "Pisu Bot";
 
   static final Guid serviceUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0001");
   static final Guid timeCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0002");

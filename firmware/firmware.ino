@@ -107,7 +107,7 @@ void loop() {
       static bool wasConnected = false;
       bool isConnected = BLEComm::isConnected();
       if (isConnected && !wasConnected) {
-        drawMessage("Connected!", "Zani app connected by Bluetooth");
+        drawMessage("Connected!", "Pisu app connected by Bluetooth");
         display.sendBuffer();
         delay(1200);
       }

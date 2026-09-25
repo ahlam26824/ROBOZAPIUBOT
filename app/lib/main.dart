@@ -35,7 +35,7 @@ class DeskBotApp extends StatelessWidget {
     );
 
     return MaterialApp(
-      title: 'Zani Bot',
+      title: 'Pisu Bot',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

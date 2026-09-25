@@ -12,7 +12,7 @@ void main() {
   testWidgets('App boots and shows the title', (WidgetTester tester) async {
     await tester.pumpWidget(const DeskBotApp());
 
-    expect(find.text('Zani Bot'), findsOneWidget);
+    expect(find.text('Pisu Bot'), findsOneWidget);
     expect(find.text('Connection'), findsOneWidget);
   });
 }

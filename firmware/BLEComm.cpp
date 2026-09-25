@@ -5,7 +5,7 @@
 #include "BLEComm.h"
 
 namespace {
-  const char* DEVICE_NAME = "Zani Bot";
+  const char* DEVICE_NAME = "Pisu Bot";
 
   const char* SERVICE_UUID     = "a1b2c3d4-0001-4000-8000-00805f9b0001";
   const char* TIME_CHAR_UUID   = "a1b2c3d4-0001-4000-8000-00805f9b0002";

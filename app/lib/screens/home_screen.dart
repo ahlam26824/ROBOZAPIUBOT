@@ -129,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Zani Bot'),
+        title: const Text('Pisu Bot'),
       ),
       body: SafeArea(
         child: ListView(
