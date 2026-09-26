@@ -135,10 +135,10 @@ through it.
 >
 > | Hold Duration | Effect |
 > |---------------|--------|
-> | < 3s, released | **Short tap** → Pat reaction (Happy face + sound) |
-> | 3s–8s, released | **Medium hold** → Dino Game open/close |
+> | < 5s, released | **Short tap** → Pat reaction (Happy face + sound) |
+> | **5s released** | **Medium hold** → Dino Game open/close 🦖 |
 > | **Hold 7 seconds** | **Focus Mode** → 26-min countdown starts on OLED ⏱️ |
-> | Hold 8+ seconds | Long press (reserved for future use) |
+> | **Hold 8+ seconds** | **Stopwatch** → Toggle Stopwatch directly on OLED ⏱️ |
 
 ---
 

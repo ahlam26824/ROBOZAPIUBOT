@@ -4,9 +4,9 @@
 namespace {
   const int TOUCH_PIN = 10;
   const unsigned long DEBOUNCE_MS = 50;
-  const unsigned long MEDIUM_HOLD_MS = 3000;
-  const unsigned long FOCUS_HOLD_MS = 7000;
-  const unsigned long LONG_HOLD_MS = 8000;
+  const unsigned long MEDIUM_HOLD_MS = 5000; // 5 seconds threshold for Dino Game
+  const unsigned long FOCUS_HOLD_MS = 7000;  // 7 seconds threshold for Focus Timer
+  const unsigned long LONG_HOLD_MS = 8000;   // 8 seconds threshold for Stopwatch
 
   bool lastState = false;
   unsigned long lastChangeTime = 0;

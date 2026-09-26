@@ -47,7 +47,7 @@ void loop() {
   if (appMode == MODE_GAME) {
     DinoGame::update(TouchSensor::wasTapped(), TouchSensor::wasShortReleased());
 
-    if (DinoGame::isGameOver() && TouchSensor::wasMediumReleased()) {
+    if (DinoGame::isGameOver() && (TouchSensor::wasMediumReleased() || TouchSensor::wasShortReleased())) {
       appMode = MODE_NORMAL;
       Behavior::begin();
     }
@@ -60,6 +60,16 @@ void loop() {
       FocusScreen::startFocus(26);
     }
 
+    // 8+ second touch hold -> Stopwatch toggle on OLED!
+    if (TouchSensor::wasLongPressed()) {
+      if (FocusScreen::isStopwatchActive()) {
+        FocusScreen::exitStopwatch();
+      } else {
+        FocusScreen::startStopwatch();
+      }
+    }
+
+    // 5-second touch release -> Dino Game open/close!
     if (TouchSensor::wasMediumReleased()) {
       appMode = MODE_GAME;
       DinoGame::begin();
