@@ -34,6 +34,8 @@ NOTIFY_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0004"
 MODE_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0005"
 RESULT_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0006"
 FOCUS_CHAR_UUID   = "a1b2c3d4-0001-4000-8000-00805f9b0007"
+DRAW_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0008"
+TEXT_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0009"
 
 # Exact App Palette matching Flutter app main.dart
 COLOR_BG        = "#F5F4EE"
@@ -53,12 +55,12 @@ class PisuBotPCApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Pisu Bot")
-        self.geometry("860x820")
+        self.geometry("880x880")
         self.minsize(780, 680)
         self.configure(fg_color=COLOR_BG)
 
         # Connection State
-        self.connection_mode = "Disconnected" # "BLE", "SERIAL", "SIMULATOR", "Disconnected"
+        self.connection_mode = "Disconnected"
         self.ble_client = None
         self.serial_port = None
         self.is_connected = False
@@ -70,6 +72,18 @@ class PisuBotPCApp(ctk.CTk):
         self.selected_focus_mins = 26
         self.focus_running = False
         self.sw_running = False
+
+        # Drawing Canvas State (128x64 grid)
+        self.grid_w = 128
+        self.grid_h = 64
+        self.pixel_matrix = [[0 for _ in range(128)] for _ in range(64)]
+        self.draw_mode = True # True = draw, False = erase
+        self.live_sync_draw = True
+
+        # Text Animation State
+        self.text_entries = []
+        self.text_anim_running = False
+        self.anim_thread = None
 
         # Async Loop thread for BLE
         self.loop = asyncio.new_event_loop()
@@ -121,16 +135,22 @@ class PisuBotPCApp(ctk.CTk):
         # 3. Bot Display Mode Section Card
         self._build_mode_card()
 
-        # 4. Focus Mode & Stopwatch Card
+        # 4. Drawing Canvas Card (NEW)
+        self._build_draw_card()
+
+        # 5. Text & Text Animation Card (NEW)
+        self._build_text_card()
+
+        # 6. Focus Mode & Stopwatch Card
         self._build_focus_card()
 
-        # 5. Games Section Card (Tic-Tac-Toe)
+        # 7. Games Section Card (Tic-Tac-Toe)
         self._build_games_card()
 
-        # 6. Notifications Section Card
+        # 8. Notifications Section Card
         self._build_notifications_card()
 
-        # 7. Reactions Section Card
+        # 9. Reactions Section Card
         self._build_reactions_card()
 
     # ------------------ 1. WATCHFACE HERO ------------------
@@ -174,7 +194,6 @@ class PisuBotPCApp(ctk.CTk):
         self.hero_date_lbl.configure(text=date_str)
         self.after(1000, self._update_clock_ticker)
 
-    # Helper to make Flutter-style Section Cards
     def _create_section_card(self, title):
         card = ctk.CTkFrame(self.scroll, fg_color=COLOR_SURFACE, border_color=COLOR_BORDER, border_width=1, corner_radius=18)
         card.pack(fill="x", padx=5, pady=7)
@@ -206,7 +225,6 @@ class PisuBotPCApp(ctk.CTk):
         )
         self.conn_status_lbl.pack(side="left")
 
-        # Connection Buttons
         btn_frame = ctk.CTkFrame(inner, fg_color="transparent")
         btn_frame.pack(side="right")
 
@@ -375,18 +393,288 @@ class PisuBotPCApp(ctk.CTk):
             self.chip_watch.configure(fg_color=COLOR_BG, text_color=COLOR_INK_MUTED, font=ctk.CTkFont(size=14))
             self.send_payload(MODE_CHAR_UUID, "0")
 
-    # ------------------ 4. FOCUS MODE & STOPWATCH CARD ------------------
+    # ------------------ 4. DRAWING CANVAS CARD ------------------
+    def _build_draw_card(self):
+        card = self._create_section_card("DRAWING CANVAS (128x64 OLED)")
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(0, 16))
+
+        # Controls bar
+        ctrl_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        ctrl_frame.pack(fill="x", pady=(0, 10))
+
+        self.draw_tool_btn = ctk.CTkButton(
+            ctrl_frame,
+            text="✏️ Draw Mode",
+            command=self._toggle_draw_tool,
+            fg_color=COLOR_CLAY_SOFT,
+            text_color=COLOR_CLAY,
+            height=32,
+            width=110
+        )
+        self.draw_tool_btn.pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            ctrl_frame,
+            text="🗑️ Clear Canvas",
+            command=self._clear_pc_canvas,
+            fg_color=COLOR_BG,
+            text_color=COLOR_INK,
+            border_color=COLOR_BORDER,
+            border_width=1,
+            height=32,
+            width=110
+        ).pack(side="left", padx=4)
+
+        ctk.CTkButton(
+            ctrl_frame,
+            text="📡 Sync to Pisu Bot",
+            command=self._send_full_pc_canvas,
+            fg_color=COLOR_CLAY,
+            text_color="#FFFFFF",
+            height=32
+        ).pack(side="right")
+
+        # Interactive Canvas Box
+        self.canvas_w = 640
+        self.canvas_h = 320
+        self.canvas = ctk.CTkCanvas(
+            inner,
+            width=self.canvas_w,
+            height=self.canvas_h,
+            bg="#0D1117",
+            highlightthickness=2,
+            highlightbackground=COLOR_CLAY
+        )
+        self.canvas.pack(pady=6)
+
+        self.canvas.bind("<B1-Motion>", self._on_canvas_drag)
+        self.canvas.bind("<Button-1>", self._on_canvas_drag)
+
+        self._draw_grid_background()
+
+    def _toggle_draw_tool(self):
+        self.draw_mode = not self.draw_mode
+        if self.draw_mode:
+            self.draw_tool_btn.configure(text="✏️ Draw Mode", fg_color=COLOR_CLAY_SOFT, text_color=COLOR_CLAY)
+        else:
+            self.draw_tool_btn.configure(text="🧹 Erase Mode", fg_color="#FCE7E1", text_color=COLOR_BAD)
+
+    def _draw_grid_background(self):
+        self.canvas.delete("all")
+        # Draw pixel matrix
+        scale_x = self.canvas_w / self.grid_w
+        scale_y = self.canvas_h / self.grid_h
+        for y in range(self.grid_h):
+            for x in range(self.grid_w):
+                if self.pixel_matrix[y][x] == 1:
+                    x0, y0 = x * scale_x, y * scale_y
+                    x1, y1 = x0 + scale_x, y0 + scale_y
+                    self.canvas.create_rectangle(x0, y0, x1, y1, fill="#00FFCC", outline="")
+
+    def _on_canvas_drag(self, event):
+        scale_x = self.canvas_w / self.grid_w
+        scale_y = self.canvas_h / self.grid_h
+        gx = int(event.x / scale_x)
+        gy = int(event.y / scale_y)
+        if 0 <= gx < self.grid_w and 0 <= gy < self.grid_h:
+            val = 1 if self.draw_mode else 0
+            if self.pixel_matrix[gy][gx] != val:
+                self.pixel_matrix[gy][gx] = val
+                x0, y0 = gx * scale_x, gy * scale_y
+                x1, y1 = x0 + scale_x, y0 + scale_y
+                if val == 1:
+                    self.canvas.create_rectangle(x0, y0, x1, y1, fill="#00FFCC", outline="")
+                else:
+                    self.canvas.create_rectangle(x0, y0, x1, y1, fill="#0D1117", outline="")
+                
+                if self.live_sync_draw:
+                    self.send_payload(DRAW_CHAR_UUID, f"draw:pixel:{gx},{gy},{val}")
+
+    def _clear_pc_canvas(self):
+        self.pixel_matrix = [[0 for _ in range(128)] for _ in range(64)]
+        self._draw_grid_background()
+        self.send_payload(DRAW_CHAR_UUID, "draw:clear")
+
+    def _send_full_pc_canvas(self):
+        buffer = bytearray(1024)
+        for y in range(64):
+            for x in range(128):
+                if self.pixel_matrix[y][x] == 1:
+                    byte_idx = y * 16 + (x // 8)
+                    bit_idx = x % 8
+                    buffer[byte_idx] |= (1 << bit_idx)
+
+        self.send_payload(DRAW_CHAR_UUID, "draw:clear")
+        time.sleep(0.05)
+        for chunk in range(4):
+            offset = chunk * 256
+            hex_data = buffer[offset:offset+256].hex()
+            self.send_payload(DRAW_CHAR_UUID, f"draw:bmp:{chunk}:{hex_data}")
+            time.sleep(0.06)
+
+    # ------------------ 5. TEXT & TEXT ANIMATION CARD ------------------
+    def _build_text_card(self):
+        card = self._create_section_card("TEXT TYPING & TEXT ANIMATION")
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(0, 16))
+
+        # Single Text Subsection
+        ctk.CTkLabel(inner, text="💬 Single Custom Text", font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_INK).pack(anchor="w", pady=(0, 4))
+
+        single_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        single_frame.pack(fill="x", pady=(0, 14))
+
+        self.single_text_entry = ctk.CTkEntry(
+            single_frame,
+            placeholder_text="Type custom text (e.g. Hii / Pisu Bot)",
+            fg_color=COLOR_BG,
+            border_color=COLOR_BORDER,
+            text_color=COLOR_INK
+        )
+        self.single_text_entry.pack(side="left", expand=True, fill="x", padx=(0, 8))
+        self.single_text_entry.insert(0, "Hii")
+
+        ctk.CTkButton(
+            single_frame,
+            text="Send Text",
+            command=self.send_single_text,
+            fg_color=COLOR_CLAY,
+            text_color="#FFFFFF"
+        ).pack(side="left")
+
+        # Divider
+        ctk.CTkFrame(inner, height=1, fg_color=COLOR_BORDER).pack(fill="x", pady=6)
+
+        # Text Sequence Animation Subsection
+        ctk.CTkLabel(inner, text="🎬 Text Sequence Animation", font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_INK).pack(anchor="w", pady=(8, 4))
+        ctk.CTkLabel(inner, text="Add text lines to display sequentially on Pisu Bot screen", font=ctk.CTkFont(size=12), text_color=COLOR_INK_MUTED).pack(anchor="w", pady=(0, 8))
+
+        self.seq_container = ctk.CTkFrame(inner, fg_color="transparent")
+        self.seq_container.pack(fill="x", pady=(0, 8))
+
+        # Pre-fill initial lines requested by user
+        default_texts = ["Hii", "i'm pisu Bot", "How are You Guys ?"]
+        for t in default_texts:
+            self._add_text_seq_row(t)
+
+        add_btn_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        add_btn_frame.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkButton(
+            add_btn_frame,
+            text="+ Add Text Line",
+            command=lambda: self._add_text_seq_row("Text line"),
+            fg_color=COLOR_BG,
+            text_color=COLOR_INK,
+            border_color=COLOR_BORDER,
+            border_width=1,
+            height=30
+        ).pack(side="left")
+
+        # Transition Time Slider
+        slider_frame = ctk.CTkFrame(inner, fg_color="transparent")
+        slider_frame.pack(fill="x", pady=(4, 10))
+
+        ctk.CTkLabel(slider_frame, text="Transition Time (sec):", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_INK).pack(side="left")
+        
+        self.trans_val_lbl = ctk.CTkLabel(slider_frame, text="2.0 s", font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_CLAY)
+        self.trans_val_lbl.pack(side="right")
+
+        self.trans_slider = ctk.CTkSlider(
+            slider_frame,
+            from_=0.5,
+            to=8.0,
+            number_of_steps=15,
+            command=self._on_slider_change
+        )
+        self.trans_slider.set(2.0)
+        self.trans_slider.pack(side="left", expand=True, fill="x", padx=12)
+
+        # Play / Stop Animation Button
+        self.anim_play_btn = ctk.CTkButton(
+            inner,
+            text="Play Text Animation on Pisu Bot",
+            command=self.toggle_text_animation,
+            fg_color=COLOR_CLAY,
+            hover_color="#B3654B",
+            text_color="#FFFFFF",
+            corner_radius=10,
+            height=38
+        )
+        self.anim_play_btn.pack(fill="x")
+
+    def send_single_text(self):
+        txt = self.single_text_entry.get().strip()
+        if txt:
+            self.send_payload(TEXT_CHAR_UUID, f"text:single:{txt}")
+
+    def _add_text_seq_row(self, initial_text=""):
+        row = ctk.CTkFrame(self.seq_container, fg_color="transparent")
+        row.pack(fill="x", pady=3)
+
+        num_lbl = ctk.CTkLabel(row, text=f"Text {len(self.text_entries)+1}:", width=55, font=ctk.CTkFont(size=12, weight="bold"), text_color=COLOR_INK_MUTED)
+        num_lbl.pack(side="left", padx=(0, 6))
+
+        entry = ctk.CTkEntry(row, fg_color=COLOR_BG, border_color=COLOR_BORDER, text_color=COLOR_INK)
+        entry.insert(0, initial_text)
+        entry.pack(side="left", expand=True, fill="x")
+        self.text_entries.append((row, entry))
+
+        del_btn = ctk.CTkButton(
+            row,
+            text="✕",
+            width=28,
+            height=28,
+            fg_color=COLOR_BG,
+            text_color=COLOR_BAD,
+            border_color=COLOR_BORDER,
+            border_width=1,
+            command=lambda r=row, e=entry: self._remove_text_seq_row(r, e)
+        )
+        del_btn.pack(side="right", padx=(6, 0))
+
+    def _remove_text_seq_row(self, row, entry):
+        if len(self.text_entries) <= 1:
+            return
+        self.text_entries = [t for t in self.text_entries if t[1] != entry]
+        row.destroy()
+        # Refresh numbers
+        for idx, (r, e) in enumerate(self.text_entries):
+            for child in r.winfo_children():
+                if isinstance(child, ctk.CTkLabel):
+                    child.configure(text=f"Text {idx+1}:")
+
+    def _on_slider_change(self, val):
+        self.trans_val_lbl.configure(text=f"{val:.1f} s")
+
+    def toggle_text_animation(self):
+        if self.text_anim_running:
+            self.text_anim_running = False
+            self.anim_play_btn.configure(text="Play Text Animation on Pisu Bot", fg_color=COLOR_CLAY)
+            self.send_payload(TEXT_CHAR_UUID, "text:exit")
+        else:
+            texts = [e.get().strip() for _, e in self.text_entries if e.get().strip()]
+            if not texts:
+                return
+            interval_ms = int(self.trans_slider.get() * 1000)
+            pipe_data = "|".join(texts)
+            self.send_payload(TEXT_CHAR_UUID, f"text:seq:{interval_ms}:{pipe_data}")
+            self.text_anim_running = True
+            self.anim_play_btn.configure(text="Stop Text Animation", fg_color=COLOR_BAD)
+
+    # ------------------ 6. FOCUS MODE & STOPWATCH CARD ------------------
     def _build_focus_card(self):
         card = self._create_section_card("FOCUS MODE & STOPWATCH")
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
         inner.pack(fill="x", padx=20, pady=(0, 16))
 
-        # Focus Section Header
         ctk.CTkLabel(inner, text="⏱️ Focus Timer", font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_INK).pack(anchor="w", pady=(0, 4))
         ctk.CTkLabel(inner, text="Touch for 7s on Pisu Bot or select timer below", font=ctk.CTkFont(size=12), text_color=COLOR_INK_MUTED).pack(anchor="w", pady=(0, 8))
 
-        # Preset Chips
         chip_frame = ctk.CTkFrame(inner, fg_color="transparent")
         chip_frame.pack(anchor="w", pady=(0, 10))
 
@@ -405,7 +693,6 @@ class PisuBotPCApp(ctk.CTk):
             btn.pack(side="left", padx=4)
             self.focus_chips[m] = btn
 
-        # Start Focus Button
         self.focus_start_btn = ctk.CTkButton(
             inner,
             text="Start Focus Timer (26m)",
@@ -418,10 +705,8 @@ class PisuBotPCApp(ctk.CTk):
         )
         self.focus_start_btn.pack(fill="x", pady=(0, 14))
 
-        # Divider
         ctk.CTkFrame(inner, height=1, fg_color=COLOR_BORDER).pack(fill="x", pady=6)
 
-        # Stopwatch Section Header
         ctk.CTkLabel(inner, text="⏱️ Stopwatch", font=ctk.CTkFont(size=14, weight="bold"), text_color=COLOR_INK).pack(anchor="w", pady=(8, 4))
 
         sw_frame = ctk.CTkFrame(inner, fg_color="transparent")
@@ -496,7 +781,7 @@ class PisuBotPCApp(ctk.CTk):
         self.sw_running = False
         self.sw_toggle_btn.configure(text="Start")
 
-    # ------------------ 5. GAMES CARD (TIC-TAC-TOE) ------------------
+    # ------------------ 7. GAMES CARD (TIC-TAC-TOE) ------------------
     def _build_games_card(self):
         card = self._create_section_card("GAME")
 
@@ -514,7 +799,6 @@ class PisuBotPCApp(ctk.CTk):
         self.game_lbl = ctk.CTkLabel(info_frame, text="Play against Pisu Bot with live reactions", font=ctk.CTkFont(size=12), text_color=COLOR_INK_MUTED)
         self.game_lbl.pack(anchor="w")
 
-        # Board container
         self.board_frame = ctk.CTkFrame(card, fg_color="transparent")
         self.board_frame.pack(pady=(0, 16))
 
@@ -594,7 +878,7 @@ class PisuBotPCApp(ctk.CTk):
             self.game_lbl.configure(text="🤝 Draw game!")
             self.send_payload(RESULT_CHAR_UUID, "draw")
 
-    # ------------------ 6. NOTIFICATIONS CARD ------------------
+    # ------------------ 8. NOTIFICATIONS CARD ------------------
     def _build_notifications_card(self):
         card = self._create_section_card("NOTIFICATIONS")
 
@@ -621,7 +905,7 @@ class PisuBotPCApp(ctk.CTk):
         payload = f"{title}|{msg}"
         self.send_payload(NOTIFY_CHAR_UUID, payload)
 
-    # ------------------ 7. REACTIONS CARD ------------------
+    # ------------------ 9. REACTIONS CARD ------------------
     def _build_reactions_card(self):
         card = self._create_section_card("REACTIONS TESTER")
 

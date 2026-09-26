@@ -1,45 +1,4 @@
-// Pisu Bot (by Roboza) -- Display + Motion + Sound + Eyes + Bluetooth + Game.
-//
-//   types.h              - the Expression enum
-//   DisplayDriver.h/.cpp - owns the OLED display object, the boot splash
-//                          ("Pisu Bot" / "by Roboza"), and status messages
-//   Faces.h/.cpp         - the expressions (one shared eye shape, plus
-//                          Dizzy's orbiting punch-through dot and Sad's
-//                          falling tear)
-//   Accelerometer.h/.cpp - ADXL345 shake/pickup/tilt, with startup
-//                          self-calibration
-//   TouchSensor.h/.cpp   - the touch sensor on GPIO10 -- short release
-//                          for the pat reaction (see Behavior.h), medium
-//                          hold (~3s) to open/close the hidden game (see
-//                          below)
-//   SoundData.h          - real sound clips, embedded as PROGMEM arrays
-//   Sound.h/.cpp         - plays those clips through the PAM8403 amp
-//   Behavior.h/.cpp      - the reaction strategy (see its header) --
-//                          shake -> brief Dizzy spin -> Angry (if still
-//                          shaking) -> Normal+happy once it stops; a pat
-//                          plays Happy without changing the expression
-//   BLEComm.h/.cpp       - the BLE link to the "Pisu Bot Bot" phone app
-//                          (time, temperature, watch-mode on/off, and
-//                          forwarded phone notifications -- each plays
-//                          the alarm sound, see loop()) -- advertising
-//                          starts right at boot (see setup()), no
-//                          gesture needed to make it connectable
-//   WatchScreen.h/.cpp   - the time/date/temperature display, fed by
-//                          BLEComm once the app is connected
-//   DinoGame.h/.cpp      - the hidden mini-game (see its header)
-//
-// Screen selection (see loop()): while the app has watch mode turned on
-// AND no genuine sensor reaction (Dizzy/Angry from a shake, Scared from
-// a pickup) is currently happening, the Clock/watch screen shows instead
-// of the animated face. Shaking, being picked up, or a pat all still
-// work exactly as normal even while the Clock screen is showing --
-// Behavior::update() runs every frame regardless of which screen is
-// actually drawn afterward, so the face pops back up to react, then
-// settles back to the Clock screen on its own once the reaction ends.
-// The game is a separate top-level mode that takes over the whole
-// screen exclusively -- Bluetooth/watch-mode/Behavior are all paused
-// while playing (touch a: wasMediumReleased() -- ~3s hold, released --
-// toggles in and out of it).
+// Pisu Bot (by Roboza) -- Display + Motion + Sound + Eyes + Bluetooth + Game + Focus + Draw + Text Animation.
 
 #include "types.h"
 #include "DisplayDriver.h"
@@ -52,6 +11,8 @@
 #include "WatchScreen.h"
 #include "DinoGame.h"
 #include "FocusScreen.h"
+#include "DrawScreen.h"
+#include "TextScreen.h"
 
 enum AppMode { MODE_NORMAL, MODE_GAME };
 AppMode appMode = MODE_NORMAL;
@@ -64,8 +25,10 @@ void setup() {
   showBootSplash();
 
   TouchSensor::begin();
+  DrawScreen::begin();
+  TextScreen::begin();
   BLEComm::begin();
-  BLEComm::startPairing(); // advertise from boot -- always connectable, no gesture needed
+  BLEComm::startPairing();
 
   showMessage("Calibrating sensors...", "Please keep me still");
   Accelerometer::begin();
@@ -74,9 +37,10 @@ void setup() {
 }
 
 void loop() {
-  Accelerometer::update(); // once per loop -- see Behavior.h
+  Accelerometer::update();
   TouchSensor::update();
   FocusScreen::update();
+  TextScreen::update();
 
   display.clearBuffer();
 
@@ -132,6 +96,16 @@ void loop() {
         }
       }
 
+      if (BLEComm::hasNewDrawCommand()) {
+        String cmd = BLEComm::getDrawCommand();
+        DrawScreen::processCommand(cmd);
+      }
+
+      if (BLEComm::hasNewTextCommand()) {
+        String cmd = BLEComm::getTextCommand();
+        TextScreen::processCommand(cmd);
+      }
+
       if (BLEComm::hasNewGameResult()) {
         String result = BLEComm::getGameResult();
         if (result == "win") {
@@ -147,7 +121,11 @@ void loop() {
       Expression expr = Faces::getCurrentExpression();
       bool reacting = (expr == DIZZY || expr == ANGRY || expr == SCARED || Behavior::isShowingTimedReaction());
 
-      if ((FocusScreen::isFocusActive() || FocusScreen::isStopwatchActive()) && !reacting) {
+      if (DrawScreen::isActive() && !reacting) {
+        DrawScreen::draw();
+      } else if (TextScreen::isActive() && !reacting) {
+        TextScreen::draw();
+      } else if ((FocusScreen::isFocusActive() || FocusScreen::isStopwatchActive()) && !reacting) {
         FocusScreen::draw();
       } else if (watchMode && !reacting) {
         WatchScreen::draw();

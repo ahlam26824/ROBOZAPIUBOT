@@ -14,6 +14,8 @@ namespace {
   const char* MODE_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0005";
   const char* RESULT_CHAR_UUID  = "a1b2c3d4-0001-4000-8000-00805f9b0006";
   const char* FOCUS_CHAR_UUID   = "a1b2c3d4-0001-4000-8000-00805f9b0007";
+  const char* DRAW_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0008";
+  const char* TEXT_CHAR_UUID    = "a1b2c3d4-0001-4000-8000-00805f9b0009";
 
   BLEServer* server = nullptr;
   BLECharacteristic* timeChar = nullptr;
@@ -22,6 +24,8 @@ namespace {
   BLECharacteristic* modeChar = nullptr;
   BLECharacteristic* resultChar = nullptr;
   BLECharacteristic* focusChar = nullptr;
+  BLECharacteristic* drawChar = nullptr;
+  BLECharacteristic* textChar = nullptr;
 
   bool connected = false;
   bool pairing = false;
@@ -46,8 +50,12 @@ namespace {
   bool newGameResultFlag = false;
   String lastGameResult = "";
 
-  // Splits "left|right" into its two halves. If there's no '|', `right`
-  // comes back empty.
+  bool newDrawFlag = false;
+  String latestDrawCommand = "";
+
+  bool newTextFlag = false;
+  String latestTextCommand = "";
+
   void splitOnPipe(const String& s, String& left, String& right) {
     int idx = s.indexOf('|');
     if (idx < 0) {
@@ -68,10 +76,8 @@ namespace {
     void onDisconnect(BLEServer* s) override {
       connected = false;
       newModeFlag = true;
-      watchModeRequested = false; // fall back to simple face mode -- no more live data coming
+      watchModeRequested = false;
       Serial.println("BLE: phone disconnected");
-      // Keep advertising so the app can reconnect on its own -- there's
-      // no gesture needed to make the bot connectable again.
       s->getAdvertising()->start();
     }
   };
@@ -122,6 +128,20 @@ namespace {
     }
   };
 
+  class DrawCallbacks : public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic* c) override {
+      latestDrawCommand = c->getValue();
+      newDrawFlag = true;
+    }
+  };
+
+  class TextCallbacks : public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic* c) override {
+      latestTextCommand = c->getValue();
+      newTextFlag = true;
+    }
+  };
+
   ServerCallbacks serverCallbacks;
   TimeCallbacks timeCallbacks;
   TempCallbacks tempCallbacks;
@@ -129,6 +149,8 @@ namespace {
   ModeCallbacks modeCallbacks;
   ResultCallbacks resultCallbacks;
   FocusCallbacks focusCallbacks;
+  DrawCallbacks drawCallbacks;
+  TextCallbacks textCallbacks;
 }
 
 namespace BLEComm {
@@ -160,13 +182,19 @@ namespace BLEComm {
     focusChar = service->createCharacteristic(FOCUS_CHAR_UUID, BLECharacteristic::PROPERTY_WRITE);
     focusChar->setCallbacks(&focusCallbacks);
 
+    drawChar = service->createCharacteristic(DRAW_CHAR_UUID, BLECharacteristic::PROPERTY_WRITE);
+    drawChar->setCallbacks(&drawCallbacks);
+
+    textChar = service->createCharacteristic(TEXT_CHAR_UUID, BLECharacteristic::PROPERTY_WRITE);
+    textChar->setCallbacks(&textCallbacks);
+
     service->start();
 
     BLEAdvertising* advertising = BLEDevice::getAdvertising();
     advertising->addServiceUUID(SERVICE_UUID);
     advertising->setScanResponse(true);
 
-    Serial.println("BLE: ready with Focus & Stopwatch support");
+    Serial.println("BLE: ready with Draw & Text Animation support");
   }
 
   void startPairing() {
@@ -219,5 +247,17 @@ namespace BLEComm {
     return false;
   }
   String getGameResult() { return lastGameResult; }
+
+  bool hasNewDrawCommand() {
+    if (newDrawFlag) { newDrawFlag = false; return true; }
+    return false;
+  }
+  String getDrawCommand() { return latestDrawCommand; }
+
+  bool hasNewTextCommand() {
+    if (newTextFlag) { newTextFlag = false; return true; }
+    return false;
+  }
+  String getTextCommand() { return latestTextCommand; }
 
 }

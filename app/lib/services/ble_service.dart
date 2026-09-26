@@ -6,7 +6,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Talks to the desk bot's BLE GATT server (see BLEComm.h/.cpp in the
-/// firmware). One custom service, five write-only UTF-8 characteristics.
+/// firmware). One custom service, write-only UTF-8 characteristics.
 /// These UUIDs must match the firmware exactly.
 class BleService extends ChangeNotifier {
   static const String deviceName = "Pisu Bot";
@@ -18,6 +18,8 @@ class BleService extends ChangeNotifier {
   static final Guid modeCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0005");
   static final Guid resultCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0006");
   static final Guid focusCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0007");
+  static final Guid drawCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0008");
+  static final Guid textCharUuid = Guid("a1b2c3d4-0001-4000-8000-00805f9b0009");
 
   BluetoothDevice? _device;
   BluetoothCharacteristic? _timeChar;
@@ -26,6 +28,8 @@ class BleService extends ChangeNotifier {
   BluetoothCharacteristic? _modeChar;
   BluetoothCharacteristic? _resultChar;
   BluetoothCharacteristic? _focusChar;
+  BluetoothCharacteristic? _drawChar;
+  BluetoothCharacteristic? _textChar;
 
   bool isScanning = false;
   bool isConnected = false;
@@ -43,10 +47,6 @@ class BleService extends ChangeNotifier {
     return statuses.values.every((s) => s.isGranted || s.isLimited);
   }
 
-  /// Checks whether Android already has a live GATT connection to the bot
-  /// from a previous session (BLE connections can outlive an app restart)
-  /// and adopts it if so, instead of leaving the UI stuck showing "not
-  /// connected" for a link that's actually up.
   Future<void> checkForExistingConnection() async {
     for (final d in FlutterBluePlus.connectedDevices) {
       if (d.platformName == deviceName) {
@@ -57,8 +57,6 @@ class BleService extends ChangeNotifier {
     }
   }
 
-  /// Scans for the bot and connects once found. The bot advertises from
-  /// the moment it powers on -- no gesture needed to make it connectable.
   Future<void> scanAndConnect() async {
     if (isScanning || isConnected) return;
 
@@ -116,9 +114,6 @@ class BleService extends ChangeNotifier {
     }
   }
 
-  /// Common path once a device is actually connected (whether just now,
-  /// or discovered already-connected from a previous session): find our
-  /// characteristics and start watching for a genuine later disconnect.
   Future<void> _onConnected(BluetoothDevice device) async {
     _device = device;
 
@@ -132,6 +127,8 @@ class BleService extends ChangeNotifier {
           if (c.uuid == modeCharUuid) _modeChar = c;
           if (c.uuid == resultCharUuid) _resultChar = c;
           if (c.uuid == focusCharUuid) _focusChar = c;
+          if (c.uuid == drawCharUuid) _drawChar = c;
+          if (c.uuid == textCharUuid) _textChar = c;
         }
       }
     }
@@ -198,5 +195,13 @@ class BleService extends ChangeNotifier {
 
   Future<void> sendGameResult(String result) async {
     await _writeString(_resultChar, result);
+  }
+
+  Future<void> sendDrawCommand(String cmd) async {
+    await _writeString(_drawChar ?? _modeChar, cmd);
+  }
+
+  Future<void> sendTextCommand(String cmd) async {
+    await _writeString(_textChar ?? _modeChar, cmd);
   }
 }

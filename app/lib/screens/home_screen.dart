@@ -6,6 +6,8 @@ import '../services/weather_service.dart';
 import '../services/notification_forwarder.dart';
 import 'notification_apps_screen.dart';
 import 'tic_tac_toe_screen.dart';
+import 'draw_screen.dart';
+import 'text_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _ble.addListener(_onBleChanged);
     _checkNotificationPermission();
     _ble.checkForExistingConnection();
-    _refreshWeather(); // show something in the watch face right away, even before connecting
+    _refreshWeather();
 
     _clockTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
@@ -141,6 +143,22 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 14),
             _ModeCard(watchMode: _watchMode, onChanged: _ble.isConnected ? _onToggleWatchMode : null),
             const SizedBox(height: 14),
+            _DrawCanvasCard(
+              onOpenDraw: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => DrawScreen(ble: _ble)),
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            _TextAnimationCard(
+              onOpenText: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => TextScreen(ble: _ble)),
+                );
+              },
+            ),
+            const SizedBox(height: 14),
             _FocusModeCard(ble: _ble),
             const SizedBox(height: 14),
             _GamesCard(
@@ -174,10 +192,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// The "smart watch" centerpiece: a live, ticking clock with date and
-/// temperature, sourced entirely from the phone (its own clock and its
-/// location-based weather) -- shown here in the app itself, not just
-/// silently relayed to the bot.
 class _WatchFaceHero extends StatelessWidget {
   final DateTime now;
   final double? temperatureC;
@@ -408,6 +422,92 @@ class _ModeChip extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DrawCanvasCard extends StatelessWidget {
+  final VoidCallback onOpenDraw;
+  const _DrawCanvasCard({required this.onOpenDraw});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Drawing Canvas',
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.claySoft,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.palette_outlined, color: AppColors.clay, size: 22),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Draw on Pisu Bot',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
+                ),
+                Text(
+                  'Live OLED 128x64 drawing canvas',
+                  style: TextStyle(fontSize: 12, color: AppColors.inkMuted),
+                ),
+              ],
+            ),
+          ),
+          FilledButton(onPressed: onOpenDraw, child: const Text('Draw')),
+        ],
+      ),
+    );
+  }
+}
+
+class _TextAnimationCard extends StatelessWidget {
+  final VoidCallback onOpenText;
+  const _TextAnimationCard({required this.onOpenText});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Text & Animation',
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.claySoft,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.motion_photos_on_outlined, color: AppColors.clay, size: 22),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Text Animation',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.ink),
+                ),
+                Text(
+                  'Single text & sequence text slideshow',
+                  style: TextStyle(fontSize: 12, color: AppColors.inkMuted),
+                ),
+              ],
+            ),
+          ),
+          FilledButton(onPressed: onOpenText, child: const Text('Open')),
+        ],
       ),
     );
   }
@@ -650,4 +750,3 @@ class _FocusModeCardState extends State<_FocusModeCard> {
     );
   }
 }
-
